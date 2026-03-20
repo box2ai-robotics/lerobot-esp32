@@ -38,6 +38,12 @@ ESP32-CAM/
 flash_download_tool/dl_temp/
 flash_download_tool/logs/
 
+# Source code (not for distribution)
+box2driver/
+box2driver_obf/
+build_package.py
+pyproject.toml
+
 # AI Assistant
 CLAUDE.md
 claude_md/
