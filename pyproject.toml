@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "box2driver"
+version = "0.4.4"
+description = "Box2Driver D1 - ESP32 multi-mode robotic arm controller tools"
+readme = "README.md"
+license = {text = "Proprietary"}
+authors = [{name = "boxjod / Box2AI Team"}]
+requires-python = ">=3.8"
+dependencies = [
+    "pyserial>=3.5",
+    "websockets>=10.0",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.scripts]
+box2driver = "box2driver.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/box-robotics/lerobot-esp32"
+
+[tool.setuptools.packages.find]
+include = ["box2driver*"]
+
+[tool.setuptools.package-data]
+"box2driver" = [
+    "static/*.html", "static/*.js", "static/*.css",
+    "pyarmor_runtime_*/*.py",
+    "pyarmor_runtime_*/*/*.pyd",
+    "pyarmor_runtime_*/*/*.so",
+]

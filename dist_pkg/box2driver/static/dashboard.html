@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 boxjod / Box2AI Team
+  版权所有 (c) 2026 boxjod / Box2AI 团队
+  All Rights Reserved. 保留所有权利。
+  March 2026 / 2026年3月
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Box2Driver Gateway Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0e17; color: #e0e0e0; }
+
+.header {
+    background: linear-gradient(135deg, #1a1f2e, #2a3040);
+    padding: 10px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #333;
+}
+.header h1 { font-size: 18px; color: #4fc3f7; }
+.header .stats { font-size: 12px; color: #888; display: flex; align-items: center; gap: 14px; }
+.header .stats b { color: #4fc3f7; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.status-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+.status-dot.disconnected { background: #f44336; }
+
+.container { display: flex; height: calc(100vh - 80px); }
+
+/* === 左侧边栏 === */
+.sidebar {
+    width: 260px; min-width: 260px;
+    background: #111827; border-right: 1px solid #333;
+    display: flex; flex-direction: column;
+}
+.sidebar-section {
+    padding: 8px 10px; border-bottom: 1px solid #2a3a4a;
+}
+.sidebar-section .sec-title {
+    font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+/* 设备多选 */
+.device-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer;
+    transition: background 0.15s; margin-bottom: 2px;
+}
+.device-item:hover { background: #1e2d3d; }
+.device-item.selected { background: #1a2a3a; }
+.device-item input[type="checkbox"] { accent-color: #4fc3f7; width: 14px; height: 14px; cursor: pointer; }
+.device-item .dev-name { font-size: 13px; font-weight: 500; flex: 1; }
+.device-item .dev-role {
+    font-size: 10px; padding: 1px 6px; border-radius: 8px;
+    background: #333; color: #aaa;
+}
+.device-item .dev-role.follower { background: #1b5e20; color: #a5d6a7; }
+.device-item .dev-role.leader { background: #0d47a1; color: #90caf9; }
+.device-item .dev-role.mleader { background: #4a148c; color: #ce93d8; }
+.device-item .dev-role.gateway { background: #004d40; color: #80cbc4; }
+.device-item .dev-role.joycon { background: #e65100; color: #ffcc80; }
+.device-item .dev-hz { font-size: 10px; color: #666; min-width: 36px; text-align: right; }
+.device-item .dev-port { font-size: 9px; color: #4fc3f7; cursor: pointer; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-item .dev-port:hover { color: #81d4fa; text-decoration: underline; }
+.online-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    display: inline-block;
+}
+.online-dot.on { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+.online-dot.off { background: #555; }
+
+/* 设备管理：模式切换下拉 */
+.dev-mode-select {
+    font-size: 10px; padding: 2px 4px; border-radius: 4px;
+    background: #1a2a3a; color: #ccc; border: 1px solid #334;
+    cursor: pointer; min-width: 72px;
+}
+.dev-mode-select:hover { border-color: #4fc3f7; }
+.dev-mode-select.follower { border-color: #1b5e20; color: #a5d6a7; }
+.dev-mode-select.leader   { border-color: #0d47a1; color: #90caf9; }
+.dev-mode-select.mleader  { border-color: #4a148c; color: #ce93d8; }
+.dev-mode-select.gateway  { border-color: #004d40; color: #80cbc4; }
+.dev-mode-select.joycon   { border-color: #e65100; color: #ffcc80; }
+
+/* 绑定状态标签 */
+.dev-bind {
+    font-size: 9px; padding: 1px 5px; border-radius: 8px;
+    background: #333; color: #888; white-space: nowrap;
+}
+.dev-bind.pending { background: #e65100; color: #fff; animation: bind-pulse 1s infinite; }
+.dev-bind.bound { background: #1b5e20; color: #a5d6a7; }
+.dev-bind.gw { background: #004d40; color: #80cbc4; }
+@keyframes bind-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* 绑定通知 Toast */
+#bind-toast-area {
+    position: fixed; top: 60px; right: 20px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.bind-toast {
+    background: #1a2a3a; border: 1px solid #e65100; border-radius: 8px;
+    padding: 12px 16px; min-width: 300px; pointer-events: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); animation: toast-in 0.3s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+.bind-toast .bt-title { font-size: 13px; color: #ff9800; font-weight: 600; margin-bottom: 6px; }
+.bind-toast .bt-info { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+.bind-toast .bt-actions { display: flex; gap: 8px; }
+.bind-toast .bt-btn {
+    padding: 4px 16px; border-radius: 4px; border: none; cursor: pointer;
+    font-size: 12px; font-weight: 500;
+}
+.bind-toast .bt-btn.accept { background: #1b5e20; color: #a5d6a7; }
+.bind-toast .bt-btn.accept:hover { background: #2e7d32; }
+.bind-toast .bt-btn.reject { background: #4a1010; color: #ef9a9a; }
+.bind-toast .bt-btn.reject:hover { background: #6a1010; }
+
+/* 数据类型选择 */
+.data-type-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.data-type-btn {
+    padding: 4px 12px; border-radius: 4px; border: 1px solid #2a3a4a;
+    background: #1a2332; color: #888; font-size: 11px; cursor: pointer;
+    transition: all 0.15s;
+}
+.data-type-btn:hover { border-color: #4a5a6a; color: #bbb; }
+.data-type-btn.active { border-color: #4fc3f7; color: #4fc3f7; background: #162030; }
+
+/* 摄像头配置 */
+.cam-config { display: flex; flex-direction: column; gap: 4px; }
+.cam-config .cam-entry {
+    display: flex; align-items: center; gap: 6px; font-size: 11px; color: #aaa;
+}
+.cam-config .cam-entry .cam-dot { width: 6px; height: 6px; border-radius: 50%; background: #4caf50; }
+.cam-config .cam-entry .cam-dot.off { background: #555; }
+.cam-add-btn {
+    padding: 4px 10px; border-radius: 4px; border: 1px dashed #2a3a4a;
+    background: transparent; color: #666; font-size: 11px; cursor: pointer;
+    transition: all 0.15s; text-align: center;
+}
+.cam-add-btn:hover { border-color: #4fc3f7; color: #4fc3f7; }
+
+/* === 主面板 === */
+.main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* 工具栏 */
+.toolbar {
+    background: #111827; border-bottom: 1px solid #2a3a4a;
+    padding: 6px 16px; display: flex; align-items: center; gap: 12px;
+    min-height: 36px; flex-wrap: wrap;
+}
+.toolbar .info-text { font-size: 12px; color: #888; }
+.toolbar .info-text b { color: #e0e0e0; }
+
+.chart-area { flex: 1; padding: 12px 16px; overflow-y: auto; }
+
+/* 波形网格 - 每个舵机一个图 */
+.waveform-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+.waveform-cell {
+    background: #0d1117; border: 1px solid #2a3a4a;
+    border-radius: 6px; padding: 8px;
+}
+.waveform-cell .wf-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px; padding: 0 4px;
+}
+.waveform-cell .wf-title { font-size: 12px; font-weight: 600; }
+.waveform-cell .wf-legend { display: flex; gap: 8px; font-size: 10px; }
+.waveform-cell .wf-legend .lg-item {
+    display: flex; align-items: center; gap: 3px;
+}
+.waveform-cell .wf-legend .lg-dot { width: 10px; height: 3px; border-radius: 1px; }
+.waveform-cell .wf-value { font-size: 10px; color: #888; font-family: monospace; }
+canvas.wf-canvas { width: 100%; background: #0d1117; border-radius: 4px; display: block; }
+
+/* 摄像头区 */
+.camera-section {
+    margin-top: 8px;
+}
+.cam-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 8px;
+}
+.cam-cell {
+    background: #111827; border: 1px solid #2a3a4a; border-radius: 6px;
+    overflow: hidden; position: relative;
+}
+.cam-cell .cam-label {
+    position: absolute; top: 6px; left: 8px; font-size: 10px;
+    background: rgba(0,0,0,0.6); color: #aaa; padding: 1px 6px; border-radius: 3px; z-index: 1;
+}
+.cam-cell video, .cam-cell img { width: 100%; display: block; }
+.cam-placeholder {
+    width: 100%; aspect-ratio: 16/9; background: #111827;
+    border: 2px dashed #2a3a4a; border-radius: 6px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    color: #444; font-size: 13px; gap: 6px;
+}
+.cam-placeholder .cam-icon { font-size: 36px; opacity: 0.3; }
+
+.no-data {
+    display: flex; justify-content: center; align-items: center;
+    height: 100%; color: #555; font-size: 15px;
+}
+
+/* 弹窗 */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 100;
+    display: flex; justify-content: center; align-items: center;
+}
+.modal {
+    background: #1a2332; border: 1px solid #2a3a4a; border-radius: 10px;
+    padding: 20px; min-width: 340px; max-width: 450px;
+}
+.modal h3 { font-size: 15px; color: #4fc3f7; margin-bottom: 12px; }
+.modal label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; margin-top: 8px; }
+.modal input, .modal select {
+    width: 100%; padding: 6px 10px; border-radius: 4px;
+    border: 1px solid #2a3a4a; background: #0d1117; color: #e0e0e0;
+    font-size: 12px;
+}
+.modal .btn-row { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+.modal .btn {
+    padding: 6px 16px; border-radius: 4px; border: none; cursor: pointer;
+    font-size: 12px;
+}
+.modal .btn-primary { background: #1976d2; color: #fff; }
+.modal .btn-primary:hover { background: #1e88e5; }
+.modal .btn-cancel { background: #333; color: #aaa; }
+.modal .btn-cancel:hover { background: #444; }
+
+.footer {
+    background: #111827; border-top: 1px solid #333;
+    padding: 4px 24px; font-size: 11px; color: #555;
+    display: flex; justify-content: space-between;
+}
+
+/* === 控制面板 === */
+.ctrl-toggle {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.ctrl-toggle label { font-size: 12px; color: #aaa; cursor: pointer; flex: 1; }
+.ctrl-switch {
+    position: relative; width: 36px; height: 20px; cursor: pointer;
+}
+.ctrl-switch input { opacity: 0; width: 100%; height: 100%; position: absolute; top: 0; left: 0; cursor: pointer; z-index: 2; margin: 0; }
+.ctrl-slider-bg {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: #333; border-radius: 10px; transition: 0.2s;
+}
+.ctrl-slider-bg::before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 2px; bottom: 2px; background: #888; border-radius: 50%; transition: 0.2s;
+}
+.ctrl-switch input:checked + .ctrl-slider-bg { background: #e65100; }
+.ctrl-switch input:checked + .ctrl-slider-bg::before { transform: translateX(16px); background: #ff9800; }
+
+.ctrl-servo-list {
+    max-height: 320px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.ctrl-servo-item {
+    background: #0d1117; border: 1px solid #1e2d3d; border-radius: 4px;
+    padding: 4px 8px;
+}
+.ctrl-servo-item .ctrl-row {
+    display: flex; align-items: center; gap: 6px;
+}
+.ctrl-servo-item .ctrl-label {
+    font-size: 11px; color: #888; min-width: 28px; font-weight: 600;
+}
+.ctrl-servo-item input[type="range"] {
+    flex: 1; height: 4px; cursor: pointer;
+    accent-color: #ff9800;
+}
+.ctrl-servo-item .ctrl-val {
+    font-size: 10px; color: #ff9800; font-family: monospace;
+    min-width: 36px; text-align: right;
+}
+.ctrl-servo-item input[type="number"] {
+    width: 52px; padding: 2px 4px; border-radius: 3px;
+    border: 1px solid #2a3a4a; background: #0d1117; color: #e0e0e0;
+    font-size: 10px; text-align: center;
+}
+.ctrl-disabled { opacity: 0.35; pointer-events: none; }
+
+.ctrl-btn-row { display: flex; gap: 4px; margin-top: 6px; }
+.ctrl-btn {
+    flex: 1; padding: 5px 8px; border-radius: 4px; border: 1px solid #2a3a4a;
+    background: #1a2332; color: #aaa; font-size: 11px; cursor: pointer;
+    transition: all 0.15s; text-align: center;
+}
+.ctrl-btn:hover { border-color: #4a5a6a; color: #ccc; }
+.ctrl-btn.danger { border-color: #b71c1c; color: #ef9a9a; }
+.ctrl-btn.danger:hover { background: #1a0000; border-color: #f44336; color: #f44336; }
+.ctrl-btn.success { border-color: #1b5e20; color: #a5d6a7; }
+.ctrl-btn.success:hover { background: #001a00; border-color: #4caf50; color: #4caf50; }
+.ctrl-status { font-size: 10px; color: #555; text-align: center; padding: 4px 0; }
+
+/* === 录制回放面板 === */
+.rec-panel { display: flex; flex-direction: column; gap: 6px; }
+.rec-btn-row { display: flex; gap: 4px; }
+.rec-btn {
+    flex: 1; padding: 5px 6px; border-radius: 4px; border: 1px solid #2a3a4a;
+    background: #1a2332; color: #aaa; font-size: 11px; cursor: pointer; text-align: center;
+    transition: all 0.15s;
+}
+.rec-btn:hover { border-color: #4a5a6a; color: #ccc; }
+.rec-btn.recording { border-color: #f44336; color: #f44336; background: #1a0000; animation: rec-pulse 1s infinite; }
+.rec-btn.replaying { border-color: #4caf50; color: #4caf50; background: #001a00; }
+@keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.rec-status { font-size: 10px; color: #666; text-align: center; padding: 2px 0; }
+.rec-list { max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.rec-item {
+    display: flex; align-items: center; gap: 4px; padding: 3px 6px;
+    background: #0d1117; border: 1px solid #1e2d3d; border-radius: 4px;
+    font-size: 10px; color: #aaa; cursor: pointer; transition: background 0.15s;
+}
+.rec-item:hover { background: #1e2d3d; }
+.rec-item .rec-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-item .rec-info { color: #555; font-size: 9px; }
+.rec-item .rec-play-btn {
+    padding: 1px 6px; border-radius: 3px; border: 1px solid #1565c0; color: #64b5f6;
+    background: transparent; cursor: pointer; font-size: 9px;
+}
+.rec-item .rec-play-btn:hover { background: #1565c0; color: #fff; }
+.rec-item .rec-del-btn {
+    padding: 1px 6px; border-radius: 3px; border: 1px solid #b87020; color: #e0a050;
+    background: transparent; cursor: pointer; font-size: 9px;
+}
+.rec-item .rec-del-btn:hover { background: #b87020; color: #fff; }
+.rec-loop-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #888; }
+.rec-loop-row select, .rec-loop-row input {
+    padding: 2px 4px; border-radius: 3px; border: 1px solid #2a3a4a;
+    background: #0d1117; color: #e0e0e0; font-size: 10px;
+}
+.rec-loop-row select { width: 80px; }
+.rec-loop-row input { width: 40px; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- 绑定通知 Toast 区域 -->
+<div id="bind-toast-area"></div>
+
+<div class="header">
+    <h1>Box2Driver Gateway Dashboard</h1>
+    <div class="stats">
+        <span><span class="status-dot disconnected" id="ws-status"></span><span id="conn-text">未连接</span></span>
+        <span>设备: <b id="stat-devices">0</b> / 发现: <b id="stat-neighbors">0</b></span>
+        <span>总包: <b id="stat-packets">0</b></span>
+        <span>频率: <b id="stat-hz">0</b> Hz</span>
+        <span>运行: <b id="stat-uptime">0s</b></span>
+        <span id="fw-version" style="color:#6a6;display:none;">固件: <b id="fw-ver-text">-</b></span>
+    </div>
+</div>
+
+<div class="container">
+    <div class="sidebar">
+        <!-- 设备选择 -->
+        <div class="sidebar-section">
+            <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>机械臂选择</span>
+                <button onclick="manualRefreshDevices()" style="font-size:10px;padding:2px 8px;background:#2a3a5a;color:#8af;border:1px solid #3a5a8a;border-radius:3px;cursor:pointer;" title="手动刷新设备列表">刷新</button>
+            </div>
+            <div id="device-list">
+                <div style="font-size:12px;color:#555;text-align:center;padding:16px;">等待设备...</div>
+            </div>
+        </div>
+        <!-- 数据类型 -->
+        <div class="sidebar-section">
+            <div class="sec-title">观测数据</div>
+            <div class="data-type-group" id="data-type-group">
+                <button class="data-type-btn active" data-type="pos" onclick="setDataType('pos')">关节角度</button>
+                <button class="data-type-btn" data-type="spd" onclick="setDataType('spd')">速度</button>
+                <button class="data-type-btn" data-type="load" onclick="setDataType('load')">力矩</button>
+            </div>
+        </div>
+        <!-- 摄像头 -->
+        <div class="sidebar-section">
+            <div class="sec-title">摄像头</div>
+            <div class="cam-config" id="cam-list"></div>
+            <button class="cam-add-btn" onclick="showAddCameraModal()">+ 添加摄像头</button>
+        </div>
+        <!-- 录制回放 -->
+        <div class="sidebar-section">
+            <div class="sec-title">录制 & 回放</div>
+            <div class="rec-panel">
+                <div class="rec-btn-row">
+                    <button class="rec-btn" id="rec-toggle-btn" onclick="toggleRecording()">开始录制</button>
+                    <button class="rec-btn" id="replay-stop-btn" onclick="stopReplay()" style="display:none">停止回放</button>
+                </div>
+                <div class="rec-status" id="rec-status">就绪</div>
+                <div class="rec-loop-row">
+                    <span>循环:</span>
+                    <select id="rec-loop-mode">
+                        <option value="1">播放1次</option>
+                        <option value="3">播放3次</option>
+                        <option value="0">无限循环</option>
+                    </select>
+                    <span>速度:</span>
+                    <input type="number" id="rec-speed" value="1.0" min="0.1" max="5" step="0.1">
+                    <span>x</span>
+                </div>
+                <div class="rec-list" id="rec-list">
+                    <div style="font-size:10px;color:#444;text-align:center;padding:4px;">无录制</div>
+                </div>
+                <div class="rec-btn-row" style="margin-top:4px;">
+                    <button class="rec-btn" onclick="recImportFile()" style="font-size:10px;padding:2px 8px;">导入JSON</button>
+                    <input type="file" id="rec-import-input" accept=".json" style="display:none" onchange="recImportFileHandler(event)">
+                </div>
+            </div>
+        </div>
+        <!-- 控制面板 -->
+        <div class="sidebar-section" style="flex:1;overflow-y:auto;">
+            <div class="sec-title">控制面板 (虚拟主臂)</div>
+            <div class="ctrl-toggle">
+                <label for="ctrl-enable">启用控制</label>
+                <div class="ctrl-switch">
+                    <input type="checkbox" id="ctrl-enable" onchange="toggleControl()">
+                    <span class="ctrl-slider-bg"></span>
+                </div>
+            </div>
+            <div style="padding:4px 8px;">
+                <label style="font-size:10px;color:#aaa;">目标从臂:</label>
+                <select id="ctrl-target" style="font-size:11px;background:#1a2a3a;color:#ccc;border:1px solid #334;border-radius:3px;padding:2px 4px;width:100%;">
+                    <option value="">全部Follower(广播)</option>
+                </select>
+            </div>
+            <div class="ctrl-status" id="ctrl-status">控制未启用</div>
+            <div id="ctrl-servo-container" class="ctrl-disabled">
+                <div class="ctrl-servo-list" id="ctrl-servo-list">
+                    <div style="font-size:11px;color:#555;text-align:center;padding:8px;">等待设备数据...</div>
+                </div>
+                <div class="ctrl-btn-row">
+                    <button class="ctrl-btn success" onclick="ctrlSyncFromFeedback()">读取当前位置</button>
+                </div>
+            </div>
+        </div>
+        <!-- 固件更新 -->
+        <div class="sidebar-section">
+            <div class="sec-title">固件更新 (USB)</div>
+            <div style="padding:4px 8px;font-size:11px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="color:#aaa;">当前: <b id="ota-current-ver" style="color:#6a6;">-</b></span>
+                    <button onclick="checkFwUpdate()" style="font-size:10px;padding:2px 8px;background:#2a3a5a;color:#8af;border:1px solid #3a5a8a;border-radius:3px;cursor:pointer;">检查更新</button>
+                </div>
+                <div id="ota-status" style="color:#888;margin:4px 0;min-height:14px;"></div>
+                <div id="ota-update-area" style="display:none;">
+                    <div style="margin:4px 0;">
+                        <label style="color:#aaa;">固件文件:</label>
+                        <input type="file" id="ota-file" accept=".bin" style="font-size:10px;color:#aaa;width:100%;margin-top:2px;">
+                    </div>
+                    <button id="ota-flash-btn" onclick="flashFirmware()" style="width:100%;padding:6px;margin-top:4px;background:#1b5e20;color:#a5d6a7;border:1px solid #2e7d32;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;">烧录固件</button>
+                    <div id="ota-progress" style="display:none;margin-top:4px;">
+                        <div style="background:#1a2a3a;border-radius:3px;overflow:hidden;height:8px;">
+                            <div id="ota-progress-bar" style="height:100%;background:#4caf50;width:0%;transition:width 0.3s;"></div>
+                        </div>
+                        <div id="ota-progress-text" style="text-align:center;color:#aaa;font-size:10px;margin-top:2px;">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="main-panel">
+        <div class="toolbar" id="toolbar">
+            <span class="info-text">选择左侧机械臂开始观测</span>
+        </div>
+        <div class="chart-area" id="chart-area">
+            <div class="no-data" id="no-selection">选择左侧机械臂查看波形</div>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    <span>Box2Driver Gateway Dashboard v3.0</span>
+    <span id="footer-info"></span>
+</div>
+
+<!-- 添加摄像头弹窗 -->
+<div class="modal-overlay" id="cam-modal" style="display:none;">
+    <div class="modal">
+        <h3>添加摄像头</h3>
+        <label>类型</label>
+        <select id="cam-type" onchange="camTypeChanged()">
+            <option value="usb">USB 摄像头</option>
+            <option value="esp">ESP-CAM (MJPEG)</option>
+        </select>
+        <label>名称</label>
+        <input id="cam-name" placeholder="如: 主臂前视">
+        <div id="cam-usb-opts">
+            <label>USB 设备</label>
+            <select id="cam-usb-select"><option>加载中...</option></select>
+        </div>
+        <div id="cam-esp-opts" style="display:none;">
+            <label>IP 地址</label>
+            <input id="cam-ip" placeholder="如: 192.168.4.2">
+            <label>流地址 (可选)</label>
+            <input id="cam-stream-url" placeholder="默认: http://IP:81/stream">
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-cancel" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="addCameraFromModal()">添加</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// === 全局状态
+// ============================================
+const state = {
+    devices: {},           // devId -> { latest, history[], connected, hz, hzCounter, lastHzTime, firstSeen, lastSeen }
+    selectedDevices: new Set(),  // 选中的设备
+    dataType: 'pos',       // 'pos' | 'spd' | 'load'
+    ws: null,
+    packetCount: 0,
+    hzCounter: 0,
+    lastHzTime: Date.now(),
+    hz: 0,
+    maxHistory: 3600,      // 60Hz × 60s per device
+    startTime: Date.now(),
+    cameras: [],           // [{ name, type, ip, url, stream }]
+    usbStreams: {},         // name -> MediaStream
+    neighbors: [],         // [{mac, role, name, fw}] from ESP-NOW discovery
+    fwVersions: {},        // mac -> "0.4.3" (from neighbor HELLO)
+    gwFw: null,            // Gateway 自身固件版本
+    stsPorts: {},          // dev_id -> {port, url, com, role_name, mac}
+};
+
+const ROLE_NAMES = { 0: 'Follower', 1: 'Leader', 2: 'M-Leader', 3: 'Gateway', 4: 'JoyCon' };
+const ROLE_CLASS = { 0: 'follower', 1: 'leader', 2: 'mleader', 3: 'gateway', 4: 'joycon' };
+// 每个机械臂一种颜色
+const ARM_COLORS = ['#42a5f5', '#66bb6a', '#ffa726', '#ef5350', '#ab47bc', '#26c6da', '#ec407a', '#78909c'];
+const DATA_LABELS = { pos: '关节角度', spd: '速度', load: '力矩' };
+const DATA_UNITS = { pos: '', spd: '', load: '' };
+
+function getDevState(devId) {
+    if (!state.devices[devId]) {
+        state.devices[devId] = {
+            latest: null, history: [], connected: true,
+            hz: 0, hzCounter: 0, lastHzTime: Date.now(),
+            firstSeen: Date.now(), lastSeen: Date.now(),
+        };
+    }
+    return state.devices[devId];
+}
+
+// ============================================
+// === WebSocket
+// ============================================
+function connectWS() {
+    const params = new URLSearchParams(window.location.search);
+    const wsPort = params.get('ws_port') || 8765;
+    const wsUrl = `ws://${location.hostname || 'localhost'}:${wsPort}`;
+    state.ws = new WebSocket(wsUrl);
+
+    state.ws.onopen = () => {
+        document.getElementById('ws-status').className = 'status-dot connected';
+        document.getElementById('conn-text').textContent = '已连接';
+        refreshRecList();
+    };
+    state.ws.onclose = () => {
+        document.getElementById('ws-status').className = 'status-dot disconnected';
+        document.getElementById('conn-text').textContent = '已断开';
+        setTimeout(connectWS, 2000);
+    };
+    state.ws.onerror = () => { state.ws.close(); };
+
+    state.ws.onmessage = (evt) => {
+        try {
+            const msg = JSON.parse(evt.data);
+            if (msg.type === 'snapshot') {
+                // 初始快照：提取 gw_info + STS 端口
+                if (msg.data && msg.data.gw_info) handleGwInfo(msg.data.gw_info);
+                if (msg.data && msg.data.sts_ports) state.stsPorts = msg.data.sts_ports;
+            }
+            else if (msg.type === 'sts_ports') {
+                if (msg.online) state.stsPorts = msg.online;
+            }
+            else if (msg.type === 'trajectories') handleTrajectories(msg.data);
+            // request_control_ack removed — use bind_accept instead
+            else if (msg.type === 'fw_update_info') handleFwUpdateInfo(msg);
+            else if (msg.type === 'flash_progress') handleFlashProgress(msg);
+            else if (msg.type === 'record_result' || msg.type === 'record_list'
+                  || msg.type === 'record_status' || msg.type === 'replay_status')
+                handleRecMessage(msg);
+            else if (msg.ack !== undefined) handleAckMessage(msg);
+            else if (msg.gw_info !== undefined) handleGwInfo(msg.gw_info);
+            else if (msg.neighbors !== undefined) handleNeighbors(msg);
+            else if (msg.joycon !== undefined) handleJoyConPacket(msg.joycon);
+            else if (msg.dev !== undefined) handlePacket(msg);
+        } catch (e) {}
+    };
+}
+
+// ============================================
+// === 数据处理
+// ============================================
+
+// Gateway 固件信息
+function handleGwInfo(info) {
+    const el = document.getElementById('fw-version');
+    const txt = document.getElementById('fw-ver-text');
+    if (el && txt && info.fw) {
+        txt.textContent = 'v' + info.fw;
+        el.style.display = '';
+        el.title = 'Gateway MAC: ' + (info.mac || '?');
+        state.gwFw = info.fw;
+        if (info.mac) state.fwVersions[info.mac] = info.fw;
+        // 同步更新 OTA 面板
+        const otaVer = document.getElementById('ota-current-ver');
+        if (otaVer) otaVer.textContent = 'v' + info.fw;
+    }
+}
+
+// 邻居表：ESP-NOW 发现协议，1Hz 更新
+function handleNeighbors(data) {
+    state.neighbors = data.neighbors || [];
+    document.getElementById('stat-neighbors').textContent = state.neighbors.length;
+
+    // 存储每个邻居的固件版本
+    for (const nb of state.neighbors) {
+        if (nb.mac && nb.fw && nb.fw !== '0.0.0') {
+            state.fwVersions[nb.mac] = nb.fw;
+        }
+    }
+
+    // 当前邻居 MAC 集合（权威源：ESP-NOW 发现协议）
+    const liveMacs = new Set(state.neighbors.map(n => n.mac));
+
+    // 清理所有不在邻居表中的设备（包括 nb- 预览和真实 feedback 设备）
+    const now = Date.now();
+    for (const devId of Object.keys(state.devices)) {
+        const dev = state.devices[devId];
+        if (!dev.latest || !dev.latest.mac) continue;
+        const mac = dev.latest.mac;
+        // 如果 MAC 不在邻居表中，且超过 4 秒没收到数据 → 移除
+        if (!liveMacs.has(mac) && (now - dev.lastSeen > 4000)) {
+            delete state.devices[devId];
+            state.selectedDevices.delete(devId);
+            const el = document.getElementById(`di-${devId}`);
+            if (el) el.remove();
+            deviceListBuilt.delete(devId);
+        }
+    }
+
+    // 为邻居表中尚未出现在 devices 中的设备创建占位条目
+    for (const nb of state.neighbors) {
+        const mac = nb.mac;
+        // 检查是否已有真实 feedback 设备匹配此 MAC
+        let found = false;
+        for (const [id, dev] of Object.entries(state.devices)) {
+            if (!id.startsWith('nb-') && dev.latest && dev.latest.mac === mac) {
+                found = true; break;
+            }
+        }
+        if (!found) {
+            const shortMac = mac.replace(/:/g, '').slice(-4);
+            const previewId = `nb-${shortMac}`;
+            const dev = getDevState(previewId);
+            dev.latest = {
+                dev: previewId, role: nb.role, mac: mac,
+                seq: 0, t: 0, servos: []
+            };
+            dev.lastSeen = Date.now();
+            dev.connected = true;
+        }
+    }
+    updateDeviceList();
+}
+
+function handlePacket(data) {
+    const devId = String(data.dev);
+    state.packetCount++;
+    state.hzCounter++;
+
+    // 真实 feedback 到达：清理同 MAC 的 nb- 预览条目
+    if (data.mac) {
+        const shortMac = data.mac.replace(/:/g, '').slice(-4);
+        const previewId = `nb-${shortMac}`;
+        if (state.devices[previewId]) {
+            delete state.devices[previewId];
+            state.selectedDevices.delete(previewId);
+            const el = document.getElementById(`di-${previewId}`);
+            if (el) el.remove();
+            deviceListBuilt.delete(previewId);
+        }
+    }
+
+    const dev = getDevState(devId);
+    dev.latest = data;
+    dev.lastSeen = Date.now();
+    dev.hzCounter++;
+
+    if (dev.connected) {
+        dev.history.push({ t: Date.now(), servos: data.servos || [] });
+        if (dev.history.length > state.maxHistory) dev.history.shift();
+    }
+
+    updateDeviceList();
+}
+
+// JoyCon 姿态轴名称
+const JOYCON_AXES = ['X', 'Y', 'Z', 'Roll', 'Pitch', 'Yaw'];
+
+function handleJoyConPacket(jc) {
+    // JoyCon 数据映射为虚拟 servo 以复用波形显示
+    // servo id 101-106 = x,y,z,roll,pitch,yaw (避免和真实 servo ID 1-20 冲突)
+    const devId = 'JC-' + jc.dev;
+    state.packetCount++;
+    state.hzCounter++;
+
+    const dev = getDevState(devId);
+    const servos = [
+        { id: 101, pos: Math.round(jc.x * 10000), spd: 0, load: 0 },
+        { id: 102, pos: Math.round(jc.y * 10000), spd: 0, load: 0 },
+        { id: 103, pos: Math.round(jc.z * 10000), spd: 0, load: 0 },
+        { id: 104, pos: Math.round(jc.r * 1000), spd: 0, load: 0 },
+        { id: 105, pos: Math.round(jc.p * 1000), spd: 0, load: 0 },
+        { id: 106, pos: Math.round(jc.yaw * 1000), spd: 0, load: 0 },
+    ];
+    dev.latest = { dev: devId, role: 4, mac: 'JoyCon', seq: jc.seq, t: jc.t, servos };
+    dev.lastSeen = Date.now();
+    dev.hzCounter++;
+    dev.history.push({ t: Date.now(), servos });
+    if (dev.history.length > state.maxHistory) dev.history.shift();
+    updateDeviceList();
+}
+
+function handleTrajectories(data) {
+    for (const [devId, traj] of Object.entries(data)) {
+        const dev = getDevState(String(devId));
+        dev.history = traj.map(p => ({ t: p.pc_time * 1000, servos: p.servos }));
+    }
+}
+
+function handleAckMessage(msg) {
+    const ack = msg.ack;
+    const ok = msg.ok;
+    if (ack === 'set_mode') {
+        console.log(`[ACK] set_mode: mode=${msg.mode}, ok=${ok}`);
+    } else if (ack === 'bind_accept') {
+        console.log(`[ACK] bind_accept: ok=${ok}`);
+    } else if (ack === 'bind_reject') {
+        console.log(`[ACK] bind_reject: ok=${ok}`);
+    }
+}
+
+// 手动刷新设备列表：清空所有设备，等邻居表 + feedback 重新填充
+function manualRefreshDevices() {
+    // 清空所有设备
+    for (const devId of Object.keys(state.devices)) {
+        delete state.devices[devId];
+        state.selectedDevices.delete(devId);
+    }
+    deviceListBuilt = new Set();
+    const container = document.getElementById('device-list');
+    container.innerHTML = '<div style="font-size:12px;color:#555;text-align:center;padding:16px;">正在搜索...</div>';
+    document.getElementById('stat-devices').textContent = '0';
+}
+
+// ============================================
+// === 设备列表（多选）
+// ============================================
+let deviceListBuilt = new Set();
+
+function updateDeviceList() {
+    const container = document.getElementById('device-list');
+    const devIds = Object.keys(state.devices).sort();
+
+    if (devIds.length === 0) return;
+
+    for (const devId of devIds) {
+        if (!deviceListBuilt.has(devId)) {
+            // 首次发现设备：自动选中 + 创建 DOM
+            if (deviceListBuilt.size === 0) {
+                container.innerHTML = '';  // 清除 "等待设备" 提示
+            }
+            state.selectedDevices.add(devId);
+            const el = createDeviceItem(devId);
+            container.appendChild(el);
+            deviceListBuilt.add(devId);
+        }
+        refreshDeviceItem(devId);
+    }
+}
+
+function createDeviceItem(devId) {
+    const div = document.createElement('div');
+    div.className = 'device-item selected';
+    div.id = `di-${devId}`;
+    div.innerHTML = `
+        <input type="checkbox" id="cb-${devId}" checked onchange="toggleDevice('${devId}')">
+        <span class="online-dot on" id="dot-${devId}"></span>
+        <span class="dev-name" id="dn-${devId}">Bot ${devId}</span>
+        <span class="dev-bind" id="db-${devId}" style="display:none"></span>
+        <select class="dev-mode-select" id="dm-${devId}" title="切换模式"
+            onclick="event.stopPropagation()" onchange="sendSetMode('${devId}')">
+            <option value="0">Follower</option>
+            <option value="1">Leader</option>
+            <option value="2">M-Leader</option>
+            <option value="3">Gateway</option>
+            <option value="4">JoyCon</option>
+        </select>
+        <span class="dev-port" id="dp-${devId}" title="点击复制" onclick="event.stopPropagation(); copyPort('${devId}')"></span>
+        <span class="dev-hz" id="dhz-${devId}">0Hz</span>
+    `;
+    div.onclick = (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT'
+            || e.target.tagName === 'BUTTON') return;
+        const cb = document.getElementById(`cb-${devId}`);
+        cb.checked = !cb.checked;
+        toggleDevice(devId);
+    };
+    return div;
+}
+
+const BIND_NAMES = { 0: '', 1: 'PENDING', 2: '', 3: 'GW-CTRL' };
+const BIND_CLASS = { 0: '', 1: 'pending', 2: '', 3: 'gw' };
+
+function refreshDeviceItem(devId) {
+    const dev = state.devices[devId];
+    if (!dev || !dev.latest) return;
+    const d = dev.latest;
+    const isPreview = devId.startsWith('nb-');  // 仅邻居发现，尚无 feedback
+    const hasServos = d.servos && d.servos.length > 0;
+
+    // 模式下拉同步 + 颜色
+    const modeEl = document.getElementById(`dm-${devId}`);
+    if (modeEl && d.role !== undefined) {
+        if (document.activeElement !== modeEl) {
+            modeEl.value = String(d.role);
+        }
+        modeEl.className = `dev-mode-select ${ROLE_CLASS[d.role] || ''}`;
+    }
+
+    // 绑定状态标签 (仅 Follower 有 bind 字段)
+    const bindEl = document.getElementById(`db-${devId}`);
+    if (bindEl) {
+        const bs = d.bind;
+        const bname = BIND_NAMES[bs];
+        if (bs !== undefined && bs > 0 && bname) {
+            bindEl.style.display = '';
+            bindEl.textContent = bname;
+            bindEl.className = `dev-bind ${BIND_CLASS[bs] || ''}`;
+        } else {
+            bindEl.style.display = 'none';
+        }
+        // 检测 PENDING 状态 → 弹出绑定通知
+        if (bs === 1 && d.mac) {
+            showBindToast(devId, d.mac, d.bindMac);
+        }
+    }
+
+    const hzEl = document.getElementById(`dhz-${devId}`);
+    if (hzEl) {
+        if (isPreview && !hasServos) {
+            hzEl.textContent = '无舵机';
+            hzEl.style.color = '#a55';
+        } else {
+            hzEl.textContent = dev.hz + 'Hz';
+            hzEl.style.color = '';
+        }
+    }
+
+    const online = Date.now() - dev.lastSeen < 3000;
+    const dotEl = document.getElementById(`dot-${devId}`);
+    if (dotEl) {
+        if (isPreview) {
+            dotEl.className = 'online-dot on';
+            dotEl.style.background = '#ff9800';
+            dotEl.style.boxShadow = '0 0 4px #ff9800';
+        } else {
+            dotEl.className = `online-dot ${online ? 'on' : 'off'}`;
+            dotEl.style.background = '';
+            dotEl.style.boxShadow = '';
+        }
+    }
+
+    const nameEl = document.getElementById(`dn-${devId}`);
+    if (nameEl && d.mac) {
+        const shortMac = d.mac.slice(-5);
+        const roleName = ROLE_NAMES[d.role] || 'Bot';
+        nameEl.textContent = `${roleName} (${shortMac})`;
+        // Hover 显示固件版本和完整 MAC
+        const fw = state.fwVersions[d.mac];
+        nameEl.title = `MAC: ${d.mac}${fw ? `\n固件: v${fw}` : ''}`;
+    }
+
+    // 虚拟串口端口显示
+    const portEl = document.getElementById(`dp-${devId}`);
+    if (portEl) {
+        const pi = state.stsPorts[devId] || state.stsPorts[String(devId)];
+        if (pi) {
+            // 优先显示 COM/ttyACM，其次显示 socket URL
+            const label = pi.com || pi.url || `tcp:${pi.port}`;
+            portEl.textContent = label;
+            portEl.title = `点击复制\nTCP: socket://localhost:${pi.port}${pi.com ? '\nCOM: ' + pi.com : ''}`;
+            portEl.style.display = '';
+        } else {
+            portEl.style.display = 'none';
+        }
+    }
+}
+
+function copyPort(devId) {
+    const pi = state.stsPorts[devId] || state.stsPorts[String(devId)];
+    if (!pi) return;
+    // 复制优先级：COM/ttyACM > socket URL
+    const text = pi.com || pi.url || `socket://localhost:${pi.port}`;
+    navigator.clipboard.writeText(text).then(() => {
+        const el = document.getElementById(`dp-${devId}`);
+        if (el) { const old = el.textContent; el.textContent = '已复制!'; setTimeout(() => el.textContent = old, 800); }
+    }).catch(() => {});
+}
+
+// 定期刷新 STS 端口信息（设备上线后端口分配可能延迟）
+setInterval(() => {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'sts_ports' }));
+    }
+}, 5000);
+
+function toggleDevice(devId) {
+    const cb = document.getElementById(`cb-${devId}`);
+    const item = document.getElementById(`di-${devId}`);
+    if (cb.checked) {
+        state.selectedDevices.add(devId);
+        item.classList.add('selected');
+    } else {
+        state.selectedDevices.delete(devId);
+        item.classList.remove('selected');
+    }
+    rebuildCharts();
+
+    // 请求轨迹
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'get_trajectories' }));
+    }
+}
+
+// ============================================
+// === Gateway 请求控制 — 已移除
+// 原因：Gateway sync 直接接管会导致舵机跳到错误位置
+// 绑定应通过 Leader 握手 + Web 确认（bind_accept）完成
+
+// ============================================
+// === 远程设备管理 (模式切换 + 绑定控制)
+// ============================================
+
+function sendSetMode(devId) {
+    const sel = document.getElementById(`dm-${devId}`);
+    if (!sel) return;
+    const mode = parseInt(sel.value);
+    const dev = state.devices[devId];
+    if (!dev || !dev.latest || !dev.latest.mac) return;
+    const mac = dev.latest.mac;
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'set_mode', mac, mode }));
+        console.log(`[远程] 切换 ${mac} → mode ${mode} (${ROLE_NAMES[mode]})`);
+    }
+}
+
+// ============================================
+// === 固件更新
+// ============================================
+
+function checkFwUpdate() {
+    const statusEl = document.getElementById('ota-status');
+    const curVerEl = document.getElementById('ota-current-ver');
+    const updateArea = document.getElementById('ota-update-area');
+
+    // 显示当前版本
+    const curVer = state.gwFw || '-';
+    curVerEl.textContent = curVer ? 'v' + curVer : '-';
+
+    statusEl.textContent = '检查更新中...';
+    statusEl.style.color = '#888';
+
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'check_fw_update' }));
+    } else {
+        statusEl.textContent = 'WebSocket 未连接';
+        statusEl.style.color = '#f44';
+    }
+}
+
+function handleFwUpdateInfo(msg) {
+    const statusEl = document.getElementById('ota-status');
+    const curVerEl = document.getElementById('ota-current-ver');
+    const updateArea = document.getElementById('ota-update-area');
+
+    const curVer = state.gwFw || msg.current || '-';
+    curVerEl.textContent = curVer !== '-' ? 'v' + curVer : '-';
+
+    if (msg.latest && msg.current && msg.latest !== msg.current) {
+        statusEl.innerHTML = `新版本可用: <b style="color:#4caf50;">v${msg.latest}</b>`;
+        statusEl.style.color = '#ff9800';
+        updateArea.style.display = '';
+    } else if (msg.latest) {
+        statusEl.textContent = '已是最新版本 v' + msg.latest;
+        statusEl.style.color = '#4caf50';
+        updateArea.style.display = '';
+    } else if (msg.error) {
+        statusEl.textContent = msg.error;
+        statusEl.style.color = '#f44';
+        updateArea.style.display = '';
+    } else {
+        statusEl.textContent = '无法获取版本信息';
+        statusEl.style.color = '#f44';
+        updateArea.style.display = '';
+    }
+}
+
+function flashFirmware() {
+    const fileInput = document.getElementById('ota-file');
+    const statusEl = document.getElementById('ota-status');
+    const progressEl = document.getElementById('ota-progress');
+    const progressBar = document.getElementById('ota-progress-bar');
+    const progressText = document.getElementById('ota-progress-text');
+    const flashBtn = document.getElementById('ota-flash-btn');
+
+    if (!fileInput.files || !fileInput.files[0]) {
+        statusEl.textContent = '请先选择 .bin 固件文件';
+        statusEl.style.color = '#f44';
+        return;
+    }
+
+    const file = fileInput.files[0];
+    if (!file.name.endsWith('.bin')) {
+        statusEl.textContent = '请选择 .bin 文件';
+        statusEl.style.color = '#f44';
+        return;
+    }
+
+    // 上传文件
+    flashBtn.disabled = true;
+    flashBtn.textContent = '烧录中...';
+    statusEl.textContent = `正在上传 ${file.name} (${(file.size / 1024).toFixed(0)} KB)...`;
+    statusEl.style.color = '#ff9800';
+    progressEl.style.display = '';
+    progressBar.style.width = '0%';
+    progressText.textContent = '上传中...';
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const base64 = btoa(new Uint8Array(reader.result).reduce((s, b) => s + String.fromCharCode(b), ''));
+        if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+            state.ws.send(JSON.stringify({
+                type: 'flash_firmware',
+                filename: file.name,
+                data: base64,
+                size: file.size,
+            }));
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function handleFlashProgress(msg) {
+    const statusEl = document.getElementById('ota-status');
+    const progressBar = document.getElementById('ota-progress-bar');
+    const progressText = document.getElementById('ota-progress-text');
+    const progressEl = document.getElementById('ota-progress');
+    const flashBtn = document.getElementById('ota-flash-btn');
+
+    if (msg.status === 'flashing') {
+        progressBar.style.width = (msg.progress || 0) + '%';
+        progressText.textContent = (msg.progress || 0) + '%';
+        statusEl.textContent = msg.message || '烧录中...';
+        statusEl.style.color = '#ff9800';
+    } else if (msg.status === 'done') {
+        progressBar.style.width = '100%';
+        progressText.textContent = '完成';
+        statusEl.textContent = msg.message || '烧录完成！设备将自动重启。';
+        statusEl.style.color = '#4caf50';
+        flashBtn.disabled = false;
+        flashBtn.textContent = '烧录固件';
+    } else if (msg.status === 'error') {
+        statusEl.textContent = msg.message || '烧录失败';
+        statusEl.style.color = '#f44';
+        progressEl.style.display = 'none';
+        flashBtn.disabled = false;
+        flashBtn.textContent = '烧录固件';
+    }
+}
+
+// 绑定通知 Toast 管理
+const _activeBindToasts = new Set();  // 跟踪已显示的 toast (by devId)
+
+function showBindToast(devId, followerMac, pendingMacId) {
+    if (_activeBindToasts.has(devId)) return;  // 避免重复弹出
+    _activeBindToasts.add(devId);
+
+    // 从邻居表查找请求绑定的 Leader 名称
+    let leaderName = `..${(pendingMacId || 0).toString(16).toUpperCase().padStart(2, '0')}`;
+    if (state.neighbors) {
+        for (const n of state.neighbors) {
+            if ((n.role === 1 || n.role === 2) && n.mac) {
+                const lastByte = parseInt(n.mac.split(':').pop(), 16);
+                if (lastByte === pendingMacId) {
+                    leaderName = `${n.name} (${n.mac})`;
+                    break;
+                }
+            }
+        }
+    }
+
+    const area = document.getElementById('bind-toast-area');
+    const toast = document.createElement('div');
+    toast.className = 'bind-toast';
+    toast.id = `bt-${devId}`;
+    toast.innerHTML = `
+        <div class="bt-title">Leader 请求握手</div>
+        <div class="bt-info">
+            <b>${leaderName}</b> 请求控制 Follower <b>${followerMac}</b><br>
+            等待确认（相当于按 Follower 的 BOOT 按钮）
+        </div>
+        <div class="bt-actions">
+            <button class="bt-btn accept" onclick="bindAccept('${devId}','${followerMac}')">确认绑定</button>
+            <button class="bt-btn reject" onclick="bindReject('${devId}','${followerMac}')">拒绝</button>
+        </div>
+    `;
+    area.appendChild(toast);
+
+    // 30 秒自动消失
+    setTimeout(() => removeBindToast(devId), 30000);
+}
+
+function removeBindToast(devId) {
+    _activeBindToasts.delete(devId);
+    const toast = document.getElementById(`bt-${devId}`);
+    if (toast) toast.remove();
+}
+
+function bindAccept(devId, mac) {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'bind_accept', mac }));
+        console.log(`[远程] 接受绑定: ${mac}`);
+    }
+    removeBindToast(devId);
+}
+
+function bindReject(devId, mac) {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'bind_reject', mac }));
+        console.log(`[远程] 拒绝绑定: ${mac}`);
+    }
+    removeBindToast(devId);
+}
+
+// 当绑定状态不再是 PENDING 时自动移除 Toast
+function checkBindToastCleanup() {
+    for (const devId of _activeBindToasts) {
+        const dev = state.devices[devId];
+        if (!dev || !dev.latest || dev.latest.bind !== 1) {
+            removeBindToast(devId);
+        }
+    }
+}
+
+// ============================================
+// === 数据类型切换
+// ============================================
+function setDataType(type) {
+    state.dataType = type;
+    document.querySelectorAll('.data-type-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.type === type);
+    });
+    rebuildCharts();
+}
+
+// ============================================
+// === 波形图构建
+// ============================================
+let chartServoIds = [];  // 当前显示的舵机 ID 列表
+
+function rebuildCharts() {
+    const area = document.getElementById('chart-area');
+    const toolbar = document.getElementById('toolbar');
+    const selected = Array.from(state.selectedDevices);
+
+    if (selected.length === 0) {
+        area.innerHTML = '<div class="no-data">选择左侧机械臂查看波形</div>';
+        toolbar.innerHTML = '<span class="info-text">选择左侧机械臂开始观测</span>';
+        chartServoIds = [];
+        return;
+    }
+
+    // 收集所有选中设备的舵机 ID
+    const allIds = new Set();
+    for (const devId of selected) {
+        const dev = state.devices[devId];
+        if (!dev) continue;
+        for (const p of dev.history) for (const s of p.servos) allIds.add(s.id);
+        if (dev.latest) for (const s of dev.latest.servos) allIds.add(s.id);
+    }
+    chartServoIds = Array.from(allIds).sort((a, b) => a - b);
+
+    // 设备颜色映射
+    const armColorMap = {};
+    const sortedSelected = selected.sort();
+    sortedSelected.forEach((devId, i) => { armColorMap[devId] = ARM_COLORS[i % ARM_COLORS.length]; });
+
+    // 工具栏
+    let tbHtml = `<span class="info-text">观测: <b>${DATA_LABELS[state.dataType]}</b></span>`;
+    tbHtml += '<span class="info-text" style="margin-left:12px;">机械臂:</span>';
+    for (const devId of sortedSelected) {
+        const dev = state.devices[devId];
+        const color = armColorMap[devId];
+        const label = dev && dev.latest && dev.latest.mac ? dev.latest.mac.slice(-5) : `Bot ${devId}`;
+        const role = dev && dev.latest ? (ROLE_NAMES[dev.latest.role] || '') : '';
+        tbHtml += `<span class="info-text" style="color:${color};font-weight:600;">
+            <span style="display:inline-block;width:10px;height:3px;background:${color};border-radius:1px;vertical-align:middle;margin-right:3px;"></span>
+            ${label}${role ? ' (' + role + ')' : ''}
+        </span>`;
+    }
+    toolbar.innerHTML = tbHtml;
+
+    // 波形网格
+    let html = '<div class="waveform-grid" id="wf-grid">';
+    for (const servoId of chartServoIds) {
+        // JoyCon 虚拟 servo 用轴名称，真实 servo 用 ID
+        const servoLabel = servoId >= 101 && servoId <= 106
+            ? `JoyCon ${JOYCON_AXES[servoId - 101]} (${servoId >= 104 ? 'mrad' : '0.1mm'})`
+            : `Servo #${servoId}`;
+        html += `<div class="waveform-cell" id="wfc-${servoId}">
+            <div class="wf-header">
+                <span class="wf-title">${servoLabel}</span>
+                <div class="wf-legend" id="wfl-${servoId}">`;
+        for (const devId of sortedSelected) {
+            const color = armColorMap[devId];
+            const dev = state.devices[devId];
+            const label = dev && dev.latest && dev.latest.mac ? dev.latest.mac.slice(-5) : devId;
+            html += `<span class="lg-item"><span class="lg-dot" style="background:${color}"></span>
+                <span style="color:${color}">${label}</span>
+                <span class="wf-value" id="wfv-${devId}-${servoId}">--</span>
+            </span>`;
+        }
+        html += `</div></div>
+            <canvas class="wf-canvas" id="wfc-cv-${servoId}"></canvas>
+        </div>`;
+    }
+    html += '</div>';
+
+    // 摄像头区
+    html += buildCameraArea();
+
+    area.innerHTML = html;
+}
+
+// ============================================
+// === 波形绘制（每个 servo 一个 canvas）
+// ============================================
+function drawAllWaveforms() {
+    const selected = Array.from(state.selectedDevices);
+    if (selected.length === 0 || chartServoIds.length === 0) return;
+
+    const sortedSelected = selected.sort();
+    const armColorMap = {};
+    sortedSelected.forEach((devId, i) => { armColorMap[devId] = ARM_COLORS[i % ARM_COLORS.length]; });
+
+    const dataKey = state.dataType;  // 'pos', 'spd', 'load'
+    const now = Date.now(), twMs = 30000;
+    const tMin = now - twMs, tMax = now;
+
+    // 每个 canvas 的目标高度
+    const canvasH = 280;
+
+    for (const servoId of chartServoIds) {
+        const canvas = document.getElementById(`wfc-cv-${servoId}`);
+        if (!canvas) continue;
+
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const W = Math.floor(rect.width - 16);
+        if (W < 100) continue;
+        if (canvas.width !== W || canvas.height !== canvasH) { canvas.width = W; canvas.height = canvasH; }
+        canvas.style.height = canvasH + 'px';
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, canvasH);
+
+        const mL = 46, mR = 10, mT = 8, mB = 18;
+        const pW = W - mL - mR, pH = canvasH - mT - mB;
+
+        // 收集所有选中设备中此 servo 的数据范围
+        let vMin = Infinity, vMax = -Infinity;
+        const devData = {};  // devId -> [{ t, val }]
+
+        for (const devId of sortedSelected) {
+            const dev = state.devices[devId];
+            if (!dev) continue;
+            const raw = [];
+            for (const p of dev.history) {
+                if (p.t < tMin) continue;
+                const sv = p.servos.find(s => s.id === servoId);
+                if (!sv) continue;
+                const val = dataKey === 'pos' ? sv.pos : dataKey === 'spd' ? sv.spd : sv.load;
+                raw.push({ t: p.t, val });
+            }
+            // 滑动窗口滤波：消除毛刺和噪声（窗口=3）
+            let points;
+            if (raw.length > 4) {
+                points = [raw[0]];
+                for (let i = 1; i < raw.length - 1; i++) {
+                    const avg = (raw[i - 1].val + raw[i].val + raw[i + 1].val) / 3;
+                    points.push({ t: raw[i].t, val: Math.round(avg) });
+                }
+                points.push(raw[raw.length - 1]);
+            } else {
+                points = raw;
+            }
+            for (const p of points) {
+                if (p.val < vMin) vMin = p.val;
+                if (p.val > vMax) vMax = p.val;
+            }
+            devData[devId] = points;
+        }
+
+        if (vMin === Infinity) {
+            ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('等待数据...', W / 2, canvasH / 2);
+            continue;
+        }
+
+        const rng = vMax - vMin, pad = Math.max(rng * 0.1, 5);
+        vMin = Math.floor(vMin - pad); vMax = Math.ceil(vMax + pad);
+        const vRng = Math.max(vMax - vMin, 1);
+
+        const toX = t => mL + ((t - tMin) / twMs) * pW;
+        const toY = v => mT + ((vMax - v) / vRng) * pH;
+
+        // 网格
+        ctx.strokeStyle = '#1a2233'; ctx.lineWidth = 0.5;
+        const yStep = niceStep(vRng, 4), yStart = Math.ceil(vMin / yStep) * yStep;
+        ctx.font = '9px monospace'; ctx.textAlign = 'right';
+        for (let v = yStart; v <= vMax; v += yStep) {
+            const y = toY(v); if (y < mT || y > canvasH - mB) continue;
+            ctx.beginPath(); ctx.moveTo(mL, y); ctx.lineTo(W - mR, y); ctx.stroke();
+            ctx.fillStyle = '#556'; ctx.fillText(Math.round(v), mL - 4, y + 3);
+        }
+        ctx.textAlign = 'center';
+        for (let s = 0; s <= 30; s += 10) {
+            const t = tMax - s * 1000, x = toX(t);
+            if (x < mL || x > W - mR) continue;
+            ctx.beginPath(); ctx.moveTo(x, mT); ctx.lineTo(x, canvasH - mB); ctx.stroke();
+            ctx.fillStyle = '#446'; ctx.fillText(s === 0 ? 'now' : `-${s}s`, x, canvasH - mB + 11);
+        }
+
+        // 波形线
+        for (const devId of sortedSelected) {
+            const pts = devData[devId];
+            if (!pts || pts.length < 2) continue;
+            const color = armColorMap[devId];
+            ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            let started = false;
+            for (const p of pts) {
+                const x = toX(p.t), y = toY(p.val);
+                started ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), started = true);
+            }
+            ctx.stroke();
+
+            // 最新值标注
+            const last = pts[pts.length - 1];
+            const lx = toX(last.t), ly = toY(last.val);
+            ctx.fillStyle = color; ctx.beginPath(); ctx.arc(lx, ly, 2.5, 0, Math.PI * 2); ctx.fill();
+
+            // 更新数值显示
+            const valEl = document.getElementById(`wfv-${devId}-${servoId}`);
+            if (valEl) valEl.textContent = last.val;
+        }
+
+        // 坐标轴
+        ctx.strokeStyle = '#334'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(mL, mT); ctx.lineTo(mL, canvasH - mB); ctx.lineTo(W - mR, canvasH - mB); ctx.stroke();
+    }
+}
+
+function niceStep(range, n) {
+    const r = range / n, m = Math.pow(10, Math.floor(Math.log10(r))), nv = r / m;
+    return (nv < 1.5 ? 1 : nv < 3 ? 2 : nv < 7 ? 5 : 10) * m;
+}
+
+// ============================================
+// === 摄像头
+// ============================================
+function buildCameraArea() {
+    if (state.cameras.length === 0) return '';
+    let html = '<div class="camera-section"><div class="cam-grid">';
+    state.cameras.forEach((cam, i) => {
+        html += `<div class="cam-cell">
+            <span class="cam-label">${cam.name || 'CAM-' + (i + 1)}</span>`;
+        if (cam.type === 'usb') {
+            html += `<video id="cam-video-${i}" autoplay playsinline muted style="width:100%;display:block;"></video>`;
+        } else {
+            html += `<img src="${cam.url}" style="width:100%;display:block;"
+                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <div class="cam-placeholder" style="display:none"><div>信号丢失</div></div>`;
+        }
+        html += `</div>`;
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function updateCamSidebar() {
+    const list = document.getElementById('cam-list');
+    if (state.cameras.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:#555;text-align:center;padding:4px;">暂无摄像头</div>';
+        return;
+    }
+    let html = '';
+    state.cameras.forEach((cam, i) => {
+        html += `<div class="cam-entry">
+            <span class="cam-dot"></span>
+            <span style="flex:1;">${cam.name || 'CAM-' + (i + 1)}</span>
+            <span style="color:#666;font-size:10px;">${cam.type === 'usb' ? 'USB' : cam.ip || 'ESP'}</span>
+            <span style="cursor:pointer;color:#666;font-size:14px;" onclick="removeCamera(${i})" title="删除">&times;</span>
+        </div>`;
+    });
+    list.innerHTML = html;
+}
+
+function removeCamera(idx) {
+    // 停止 USB 流
+    const cam = state.cameras[idx];
+    if (cam && cam.type === 'usb' && state.usbStreams[cam.name]) {
+        state.usbStreams[cam.name].getTracks().forEach(t => t.stop());
+        delete state.usbStreams[cam.name];
+    }
+    state.cameras.splice(idx, 1);
+    updateCamSidebar();
+    rebuildCharts();
+}
+
+function showAddCameraModal() {
+    document.getElementById('cam-modal').style.display = 'flex';
+    document.getElementById('cam-name').value = '';
+    document.getElementById('cam-ip').value = '';
+    document.getElementById('cam-stream-url').value = '';
+    camTypeChanged();
+    enumerateUSBCameras();
+}
+
+function closeModal() {
+    document.getElementById('cam-modal').style.display = 'none';
+}
+
+function camTypeChanged() {
+    const type = document.getElementById('cam-type').value;
+    document.getElementById('cam-usb-opts').style.display = type === 'usb' ? 'block' : 'none';
+    document.getElementById('cam-esp-opts').style.display = type === 'esp' ? 'block' : 'none';
+}
+
+async function enumerateUSBCameras() {
+    const sel = document.getElementById('cam-usb-select');
+    try {
+        // 先请求权限
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        tempStream.getTracks().forEach(t => t.stop());
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDev = devices.filter(d => d.kind === 'videoinput');
+        sel.innerHTML = '';
+        if (videoDev.length === 0) {
+            sel.innerHTML = '<option>未检测到摄像头</option>';
+        } else {
+            videoDev.forEach((d, i) => {
+                sel.innerHTML += `<option value="${d.deviceId}">${d.label || 'Camera ' + (i + 1)}</option>`;
+            });
+        }
+    } catch (e) {
+        sel.innerHTML = '<option>无法访问摄像头</option>';
+    }
+}
+
+async function addCameraFromModal() {
+    const type = document.getElementById('cam-type').value;
+    const name = document.getElementById('cam-name').value.trim() || (type === 'usb' ? 'USB-CAM' : 'ESP-CAM');
+
+    if (type === 'usb') {
+        const deviceId = document.getElementById('cam-usb-select').value;
+        if (!deviceId) return;
+        state.cameras.push({ name, type: 'usb', deviceId, ip: '', url: '' });
+    } else {
+        const ip = document.getElementById('cam-ip').value.trim();
+        if (!ip) return;
+        const streamUrl = document.getElementById('cam-stream-url').value.trim() || `http://${ip}:81/stream`;
+        state.cameras.push({ name, type: 'esp', ip, url: streamUrl });
+    }
+
+    closeModal();
+    updateCamSidebar();
+    rebuildCharts();
+
+    // 启动 USB 摄像头流
+    if (type === 'usb') {
+        const cam = state.cameras[state.cameras.length - 1];
+        await startUSBCamera(cam, state.cameras.length - 1);
+    }
+}
+
+async function startUSBCamera(cam, idx) {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: cam.deviceId } }
+        });
+        state.usbStreams[cam.name] = stream;
+        const videoEl = document.getElementById(`cam-video-${idx}`);
+        if (videoEl) {
+            videoEl.srcObject = stream;
+        }
+    } catch (e) {
+        console.error('USB camera error:', e);
+    }
+}
+
+// 重建图表后重新绑定 USB 流
+function reattachUSBStreams() {
+    state.cameras.forEach((cam, i) => {
+        if (cam.type === 'usb' && state.usbStreams[cam.name]) {
+            const videoEl = document.getElementById(`cam-video-${i}`);
+            if (videoEl && !videoEl.srcObject) {
+                videoEl.srcObject = state.usbStreams[cam.name];
+            }
+        }
+    });
+}
+
+// ============================================
+// === 统计 + 渲染循环
+// ============================================
+function updateStats() {
+    const now = Date.now();
+    if (now - state.lastHzTime >= 1000) {
+        state.hz = state.hzCounter;
+        state.hzCounter = 0;
+        state.lastHzTime = now;
+
+        for (const dev of Object.values(state.devices)) {
+            dev.hz = dev.hzCounter;
+            dev.hzCounter = 0;
+        }
+    }
+    const total = Object.keys(state.devices).length;
+    document.getElementById('stat-devices').textContent = total;
+    document.getElementById('stat-packets').textContent = state.packetCount;
+    document.getElementById('stat-hz').textContent = state.hz;
+    const upSec = Math.floor((now - state.startTime) / 1000);
+    const mm = Math.floor(upSec / 60), ss = upSec % 60;
+    document.getElementById('stat-uptime').textContent = mm > 0 ? `${mm}m${ss}s` : `${ss}s`;
+
+    // 清理不再 PENDING 的绑定通知
+    checkBindToastCleanup();
+}
+
+let lastRebuild = 0;
+let lastFrame = 0;
+function renderLoop(ts) {
+    requestAnimationFrame(renderLoop);
+    if (ts - lastFrame < 33) return;  // ~30fps
+    lastFrame = ts;
+
+    updateStats();
+
+    // 检查是否需要重建（新设备/新舵机出现）
+    if (state.selectedDevices.size > 0) {
+        const newIds = new Set();
+        for (const devId of state.selectedDevices) {
+            const dev = state.devices[devId];
+            if (!dev) continue;
+            if (dev.latest) for (const s of dev.latest.servos) newIds.add(s.id);
+        }
+        const newSorted = Array.from(newIds).sort((a, b) => a - b);
+        if (JSON.stringify(newSorted) !== JSON.stringify(chartServoIds)) {
+            rebuildCharts();
+            reattachUSBStreams();
+        }
+        drawAllWaveforms();
+    }
+}
+
+// ============================================
+// === 控制面板（虚拟主臂）
+// ============================================
+const ctrl = {
+    enabled: false,
+    servoValues: {},    // servoId -> pos value
+    knownServoIds: [],  // sorted servo IDs from feedback
+    lastSendTime: 0,
+    sendInterval: 33,   // ~30Hz max (match firmware)
+    dirty: false,       // has unsent changes
+    built: false,       // UI built
+    targetMac: '',       // 当前控制目标 MAC
+};
+
+function toggleControl() {
+    ctrl.enabled = document.getElementById('ctrl-enable').checked;
+    const container = document.getElementById('ctrl-servo-container');
+    const statusEl = document.getElementById('ctrl-status');
+
+    if (ctrl.enabled) {
+        container.classList.remove('ctrl-disabled');
+        statusEl.textContent = '控制已启用 - 仅控制Follower从臂 (Gateway最高优先级)';
+        statusEl.style.color = '#ff9800';
+        ctrl.targetMac = document.getElementById('ctrl-target').value;
+        // Auto-sync from current feedback positions
+        ctrlSyncFromFeedback();
+        // 立即发一次 sync 接管 Follower (gateway_dashboard.py 内置 keep-alive)
+        ctrlSendSync();
+    } else {
+        container.classList.add('ctrl-disabled');
+        statusEl.textContent = '控制未启用';
+        statusEl.style.color = '#555';
+        // 发送 ctrl_release 给所有被控 Follower
+        if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+            const macs = ctrlGetTargetMacs();
+            for (const mac of macs) {
+                state.ws.send(JSON.stringify({ type: 'ctrl_release', mac }));
+            }
+        }
+    }
+}
+
+function ctrlBuildServoList(servoIds) {
+    if (JSON.stringify(servoIds) === JSON.stringify(ctrl.knownServoIds) && ctrl.built) return;
+    ctrl.knownServoIds = servoIds;
+    ctrl.built = true;
+
+    const list = document.getElementById('ctrl-servo-list');
+    if (servoIds.length === 0) {
+        list.innerHTML = '<div style="font-size:11px;color:#555;text-align:center;padding:8px;">等待设备数据...</div>';
+        return;
+    }
+
+    let html = '';
+    for (const sid of servoIds) {
+        const val = ctrl.servoValues[sid] !== undefined ? ctrl.servoValues[sid] : 2048;
+        ctrl.servoValues[sid] = val;
+        html += `<div class="ctrl-servo-item">
+            <div class="ctrl-row">
+                <span class="ctrl-label">#${sid}</span>
+                <input type="range" min="0" max="4095" value="${val}"
+                    id="ctrl-range-${sid}"
+                    oninput="ctrlSliderChange(${sid}, this.value)">
+                <span class="ctrl-val" id="ctrl-val-${sid}">${val}</span>
+                <input type="number" min="0" max="4095" value="${val}"
+                    id="ctrl-num-${sid}"
+                    onchange="ctrlNumChange(${sid}, this.value)">
+            </div>
+        </div>`;
+    }
+    list.innerHTML = html;
+}
+
+function ctrlSliderChange(servoId, value) {
+    value = parseInt(value);
+    ctrl.servoValues[servoId] = value;
+    const valEl = document.getElementById(`ctrl-val-${servoId}`);
+    if (valEl) valEl.textContent = value;
+    const numEl = document.getElementById(`ctrl-num-${servoId}`);
+    if (numEl) numEl.value = value;
+    ctrl.dirty = true;
+    ctrlTrySend();
+}
+
+function ctrlNumChange(servoId, value) {
+    value = Math.max(0, Math.min(4095, parseInt(value) || 0));
+    ctrl.servoValues[servoId] = value;
+    const rangeEl = document.getElementById(`ctrl-range-${servoId}`);
+    if (rangeEl) rangeEl.value = value;
+    const valEl = document.getElementById(`ctrl-val-${servoId}`);
+    if (valEl) valEl.textContent = value;
+    ctrl.dirty = true;
+    ctrlTrySend();
+}
+
+function ctrlGetTargetMacs() {
+    // 获取要控制的 Follower MAC 列表
+    const mac = ctrl.targetMac || document.getElementById('ctrl-target').value;
+    if (mac) return [mac];
+    // 广播模式: 收集所有已知 Follower MAC
+    const macs = [];
+    for (const dev of Object.values(state.devices)) {
+        if (dev.latest && dev.latest.role === 0 && dev.latest.mac) {
+            macs.push(dev.latest.mac);
+        }
+    }
+    return macs;
+}
+
+function ctrlSendSync() {
+    // 发送 {"type":"control","mac":"...","servos":[...]} — gateway_dashboard.py 自动转为 cmd:sync
+    if (!ctrl.enabled) return;
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    const servos = [];
+    for (const sid of ctrl.knownServoIds) {
+        if (ctrl.servoValues[sid] !== undefined) {
+            servos.push({ id: sid, pos: ctrl.servoValues[sid] });
+        }
+    }
+    if (servos.length === 0) return;
+    const macs = ctrlGetTargetMacs();
+    for (const mac of macs) {
+        state.ws.send(JSON.stringify({ type: 'control', mac, servos }));
+    }
+}
+
+function ctrlTrySend() {
+    if (!ctrl.enabled || !ctrl.dirty) return;
+    const now = Date.now();
+    if (now - ctrl.lastSendTime < ctrl.sendInterval) return;
+    ctrl.lastSendTime = now;
+    ctrl.dirty = false;
+    ctrlSendSync();
+}
+
+// Periodic send for throttled slider updates
+setInterval(() => {
+    if (ctrl.enabled && ctrl.dirty) ctrlTrySend();
+}, 33);
+
+function ctrlSyncFromFeedback() {
+    // Read current positions from Follower feedback only
+    const allIds = new Set();
+    for (const dev of Object.values(state.devices)) {
+        if (!dev.latest || dev.latest.role !== 0) continue;  // 只同步 Follower
+        for (const s of dev.latest.servos) {
+            allIds.add(s.id);
+            ctrl.servoValues[s.id] = s.pos;
+        }
+    }
+    const sorted = Array.from(allIds).sort((a, b) => a - b);
+    ctrlBuildServoList(sorted);
+
+    // Update slider/number UI
+    for (const sid of sorted) {
+        const val = ctrl.servoValues[sid];
+        const rangeEl = document.getElementById(`ctrl-range-${sid}`);
+        if (rangeEl) rangeEl.value = val;
+        const valEl = document.getElementById(`ctrl-val-${sid}`);
+        if (valEl) valEl.textContent = val;
+        const numEl = document.getElementById(`ctrl-num-${sid}`);
+        if (numEl) numEl.value = val;
+    }
+}
+
+// Auto-discover servo IDs from Follower devices only (role=0 can be controlled)
+function ctrlAutoUpdate() {
+    // 更新目标 Follower 下拉列表
+    const targetSel = document.getElementById('ctrl-target');
+    const curVal = targetSel.value;
+    const followers = [];
+    for (const [devId, dev] of Object.entries(state.devices)) {
+        if (!dev.latest || dev.latest.role !== 0) continue;
+        followers.push({ devId, mac: dev.latest.mac, name: dev.latest.mac ? dev.latest.mac.slice(-5) : devId });
+    }
+    // 只在列表变化时重建（避免闪烁）
+    const newKeys = followers.map(f => f.mac).join(',');
+    if (targetSel.dataset.keys !== newKeys) {
+        targetSel.dataset.keys = newKeys;
+        targetSel.innerHTML = '<option value="">全部Follower(广播)</option>';
+        for (const f of followers) {
+            const opt = document.createElement('option');
+            opt.value = f.mac;
+            opt.textContent = `Follower (${f.name})`;
+            targetSel.appendChild(opt);
+        }
+        // 恢复之前的选择
+        if (curVal && [...targetSel.options].some(o => o.value === curVal)) {
+            targetSel.value = curVal;
+        }
+    }
+
+    // 收集 Follower servo IDs
+    const selectedMac = targetSel.value;
+    const allIds = new Set();
+    for (const dev of Object.values(state.devices)) {
+        if (!dev.latest || dev.latest.role !== 0) continue;
+        // 如果选了特定目标，只从该设备收集
+        if (selectedMac && dev.latest.mac !== selectedMac) continue;
+        for (const s of dev.latest.servos) allIds.add(s.id);
+    }
+    const sorted = Array.from(allIds).sort((a, b) => a - b);
+    if (sorted.length > 0) {
+        for (const sid of sorted) {
+            if (ctrl.servoValues[sid] === undefined) {
+                for (const dev of Object.values(state.devices)) {
+                    if (!dev.latest) continue;
+                    const s = dev.latest.servos.find(x => x.id === sid);
+                    if (s) { ctrl.servoValues[sid] = s.pos; break; }
+                }
+                if (ctrl.servoValues[sid] === undefined) ctrl.servoValues[sid] = 2048;
+            }
+        }
+        ctrlBuildServoList(sorted);
+    }
+}
+
+// ============================================
+// === 录制 & 回放
+// ============================================
+
+const recState = {
+    recording: false,
+    replaying: false,
+    startTime: 0,
+    recordings: {},   // name -> {devices, frames}
+    timer: null,
+};
+
+function toggleRecording() {
+    const ws = state.ws;
+    if (recState.recording) {
+        // 停止录制
+        const name = `rec_${new Date().toLocaleTimeString('zh-CN', {hour12:false}).replace(/:/g,'')}`;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({type: 'record_stop', name}));
+        }
+        recState.recording = false;
+        clearInterval(recState.timer);
+        updateRecUI();
+    } else {
+        // 开始录制：录制所有已选中的设备
+        const devIds = state.selectedDevices.size > 0 ? Array.from(state.selectedDevices) : null;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({type: 'record_start', dev_ids: devIds}));
+        }
+        recState.recording = true;
+        recState.startTime = Date.now();
+        recState.timer = setInterval(updateRecTimer, 500);
+        updateRecUI();
+    }
+}
+
+function updateRecTimer() {
+    if (!recState.recording) return;
+    const sec = ((Date.now() - recState.startTime) / 1000).toFixed(1);
+    document.getElementById('rec-status').textContent = `录制中... ${sec}s`;
+}
+
+function stopReplay() {
+    const ws = state.ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({type: 'replay_stop'}));
+    }
+    recState.replaying = false;
+    updateRecUI();
+}
+
+function startReplay(name) {
+    const ws = state.ws;
+    const loops = parseInt(document.getElementById('rec-loop-mode').value);
+    const speed = parseFloat(document.getElementById('rec-speed').value) || 1.0;
+
+    // 获取目标机械臂 MAC（使用控制面板的目标选择）
+    const targetMac = document.getElementById('ctrl-target').value;
+    if (!targetMac) {
+        // 没有选择目标 → 弹出选择提示
+        const followers = [];
+        for (const [id, dev] of Object.entries(state.devices)) {
+            if (dev.latest && dev.latest.role === 0 && dev.latest.mac)
+                followers.push({ id, mac: dev.latest.mac, name: dev.latest.name || id });
+        }
+        if (followers.length === 0) {
+            alert('没有发现 Follower 设备，无法播放');
+            return;
+        }
+        if (followers.length === 1) {
+            // 只有一个 Follower，自动选择
+            document.getElementById('ctrl-target').value = followers[0].mac;
+        } else {
+            alert('请先在「目标从臂」下拉框中选择要播放的机械臂');
+            return;
+        }
+    }
+
+    const mac = document.getElementById('ctrl-target').value;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({type: 'replay_start', name, loops, speed, mac}));
+    }
+    recState.replaying = true;
+    updateRecUI();
+}
+
+function refreshRecList() {
+    const ws = state.ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({type: 'record_list'}));
+    }
+}
+
+function updateRecUI() {
+    const btn = document.getElementById('rec-toggle-btn');
+    const stopBtn = document.getElementById('replay-stop-btn');
+    const statusEl = document.getElementById('rec-status');
+
+    if (recState.recording) {
+        btn.textContent = '停止录制';
+        btn.classList.add('recording');
+    } else {
+        btn.textContent = '开始录制';
+        btn.classList.remove('recording');
+    }
+
+    if (recState.replaying) {
+        stopBtn.style.display = '';
+        stopBtn.classList.add('replaying');
+        statusEl.textContent = '回放中...';
+    } else {
+        stopBtn.style.display = 'none';
+        stopBtn.classList.remove('replaying');
+        if (!recState.recording) {
+            statusEl.textContent = '就绪';
+        }
+    }
+
+    // 更新录制列表
+    const listEl = document.getElementById('rec-list');
+    const names = Object.keys(recState.recordings);
+    if (names.length === 0) {
+        listEl.innerHTML = '<div style="font-size:10px;color:#444;text-align:center;padding:4px;">无录制</div>';
+    } else {
+        listEl.innerHTML = names.map(name => {
+            const info = recState.recordings[name];
+            const devs = info.devices ? info.devices.join(',') : '?';
+            return `<div class="rec-item">
+                <span class="rec-name" title="${name}">${name}</span>
+                <span class="rec-info">${info.frames}帧 dev:${devs}</span>
+                <button class="rec-play-btn" onclick="startReplay('${name}')">播放</button>
+                <button class="rec-del-btn" onclick="recDelete('${name}')" title="删除录制">删除</button>
+            </div>`;
+        }).join('');
+    }
+}
+
+// 处理服务器返回的录制/回放消息
+function handleRecMessage(data) {
+    if (data.type === 'record_result') {
+        recState.recordings[data.name] = {
+            devices: Object.keys(data.data || {}),
+            frames: data.frames || 0,
+        };
+        // 缓存完整录制数据以便导出下载
+        if (!recState._fullData) recState._fullData = {};
+        recState._fullData[data.name] = data.data || {};
+        document.getElementById('rec-status').textContent =
+            `已保存: ${data.name} (${data.frames}帧, ${(data.duration||0).toFixed(1)}s)`;
+        updateRecUI();
+    } else if (data.type === 'record_list') {
+        recState.recordings = data.recordings || {};
+        recState.recording = data.recording || false;
+        recState.replaying = data.replaying || false;
+        updateRecUI();
+    } else if (data.type === 'record_status') {
+        recState.recording = data.recording;
+        updateRecUI();
+    } else if (data.type === 'replay_status') {
+        recState.replaying = data.replaying;
+        updateRecUI();
+    }
+}
+
+// 删除录制
+function recDelete(name) {
+    if (!confirm(`确定删除 ${name}？`)) return;
+    delete recState.recordings[name];
+    if (recState._fullData) delete recState._fullData[name];
+    wsSend({type: 'record_delete', name: name});
+    updateRecUI();
+}
+
+// 录制导入：从文件加载
+function recImportFile() {
+    document.getElementById('rec-import-input').click();
+}
+function recImportFileHandler(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            const name = file.name.replace('.json', '');
+            const ws = state.ws;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'record_import', name, data}));
+                document.getElementById('rec-status').textContent = `已导入: ${name}`;
+                // 缓存完整数据
+                if (!recState._fullData) recState._fullData = {};
+                recState._fullData[name] = data;
+                refreshRecList();
+            }
+        } catch (err) {
+            alert('JSON 解析失败: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';  // 允许重复导入同一文件
+}
+
+// 初始化
+updateCamSidebar();
+requestAnimationFrame(renderLoop);
+connectWS();
+
+// Auto-update control panel every 2 seconds
+setInterval(ctrlAutoUpdate, 2000);
+// Refresh recording list periodically
+setInterval(refreshRecList, 5000);
+</script>
+</body>
+</html>

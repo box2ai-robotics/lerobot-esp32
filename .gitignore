@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & temp
+*.log
+logs/
+
+# Recordings & datasets (user-generated data)
+recordings/
+datasets/
+*.jsonl
+
+# Large binary archives (keep in releases, not in git)
+1History/
+ESP32-CAM/
+flash_download_tool/dl_temp/
+flash_download_tool/logs/
+
+# AI Assistant
+CLAUDE.md
+claude_md/
+.claude/

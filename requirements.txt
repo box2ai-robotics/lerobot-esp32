@@ -1,0 +1,19 @@
+# Box2Driver Lerobot-ESP32 Python Dependencies
+# Base: Gateway Dashboard + Client API
+pyserial>=3.5
+websockets>=12.0
+numpy>=1.24
+
+# ---- Optional: Keyboard IK Control ----
+# pip install pynput
+# pynput>=1.7
+
+# ---- Optional: LeRobot Dataset Collection & Deployment ----
+# pip install -r requirements-lerobot.txt
+
+# ---- Optional: IK (Inverse Kinematics) ----
+# cd lerobot-kinematics && pip install -e .
+# Requires C compiler (Linux: gcc, Windows: MSVC Build Tools)
+
+# ---- Optional: Word Manual Generation ----
+# pip install python-docx docx2pdf
