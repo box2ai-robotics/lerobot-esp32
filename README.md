@@ -1,195 +1,68 @@
-# Lerobot-ESP32: Box2Driver D1 Python Tools & Firmware
+English | [中文](README_zh.md)
 
-Box2Driver D1 机械臂的 PC 端 Python 工具集 + 预编译固件 + 用户说明书。
+# LeRobot-ESP32: Fully Wireless LeRobot Arm Control
 
-配合 [Box2Driver D1 固件仓库](https://github.com/nicekwell/Box2Driver_D1_joycon) 使用，提供：
-- **虚拟舵机串口桥接** — 一键将 ESP32 设备映射为虚拟 COM 口，FD 软件直连
-- **Gateway Dashboard** — 串口 → WebSocket → 浏览器实时监控
-- **Python Client API** — 数据读取、控制、录制回放
-- **LeRobot 集成** — 数据集采集 + 模型部署
-- **键盘 IK 控制** — 笛卡尔/关节空间键盘遥操作
-- **JoyCon IK 桥接** — Joy-Con 姿态 → IK → 机械臂
-- **预编译固件** — 开箱即烧录
+**Cut the cables. Set your LeRobot free.**
 
-## 目录结构
+LeRobot-ESP32 uses ESP-NOW wireless protocol to deliver fully wireless teleoperation, data collection, and AI deployment for LeRobot robot arms. No cables between Leader and Follower — just 30Hz sync with <5ms latency, plus a complete PC toolchain from data collection to model deployment.
+
+## Why Go Wireless?
+
+- Cables clutter your desk and limit arm placement
+- Wired connections suffer from disconnections caused by cable tugging
+- Stock LeRobot requires one USB cable per arm to the PC — poor scalability
+- **With wireless**: Leader and Follower are independently powered, placed anywhere, auto-connect on boot
+
+## System Architecture
 
 ```
-Lerobot-ESP32/
-├── scripts/                          # 核心脚本
-│   ├── virtual_servo_bridge.py       # 虚拟舵机串口桥接 (一键启动入口)
-│   ├── start_servo_bridge.bat        # Windows 双击启动
-│   ├── start_servo_bridge.sh         # Linux/macOS 启动
-│   ├── gateway_dashboard.py          # Gateway Web Dashboard 服务端
-│   ├── gateway_dashboard.html        # Dashboard 前端页面
-│   ├── box2driver_client.py          # Python Client API
-│   ├── lerobot_collect.py            # LeRobot 数据集采集
-│   ├── lerobot_deploy.py             # LeRobot 模型推理部署
-│   ├── joycon_ik_bridge.py           # JoyCon → IK → Follower
-│   ├── compare_servo_protocol.py     # STS 协议对比调试工具
-│   ├── gateway_recv.py               # 简易串口接收 (调试用)
-│   ├── example_collect.py            # 数据采集示例
-│   ├── generate_manual.py            # 用户说明书生成器
-│   └── check_env.py                  # 环境检查工具
-├── examples/                         # 示例脚本
-│   └── keyboard_ik_control.py        # 键盘 IK/关节空间 控制示例
-├── bin/                              # 预编译固件 (v0.4.4)
-│   ├── box2driver_v0.4.4_firmware.bin      # 应用固件 (更新只烧这个)
-│   ├── box2driver_v0.4.4_bootloader.bin    # 引导程序 (首次烧录)
-│   └── box2driver_v0.4.4_partitions.bin    # 分区表 (首次烧录)
-├── flash_download_tool/              # 乐鑫烧录工具
-├── ESP32-CAM/                        # ESP32-CAM 摄像头资料
-├── requirements.txt                  # 基础依赖
-├── requirements-lerobot.txt          # LeRobot 完整依赖
-└── VERSION
+┌─────────┐   ESP-NOW 30Hz   ┌──────────┐
+│ Leader  │ ──────────────→  │ Follower │
+│(read pos)│ ←────────────── │(write srv)│
+└─────────┘   feedback        └──────────┘
+                                   ↑
+┌─────────┐   ESP-NOW            │
+│ Gateway │ ←────────────────────┘
+│(USB→PC) │ ──→ Serial JSON ──→ PC
+└─────────┘
+     ↓
+┌─────────────────────────────────────┐
+│ PC Toolchain                         │
+│ - Web Dashboard (monitor & control)  │
+│ - Virtual serial bridge (FD direct)  │
+│ - LeRobot data collection & deploy   │
+│ - Python API / Keyboard / JoyCon     │
+└─────────────────────────────────────┘
 ```
 
-## 快速开始
+## Key Features
 
-### 1. 安装
+- **ESP-NOW Wireless Sync** — Leader→Follower 30Hz real-time position sync, no USB cables
+- **Virtual Servo Serial Bridge** — Map ESP32 devices to virtual COM ports, use with FD software directly
+- **Gateway Dashboard** — Browser-based real-time monitoring, control, and waveform display
+- **LeRobot Integration** — Wireless dataset collection + model inference deployment
+- **Python Client API** — Data reading, control, recording & playback
+- **Keyboard IK Control** — Cartesian / joint-space keyboard teleoperation
+- **JoyCon IK Bridge** — Joy-Con controller pose → IK → robot arm
+- **Pre-built Firmware** — Flash and go, no build environment needed
+
+## Quick Start
+
+### 1. Install
 
 ```bash
 conda create -n box2driver python=3.11 -y
 conda activate box2driver
-pip install dist/box2driver-0.4.4-py3-none-any.whl
+pip install dist_pkg/box2driver-0.4.4-py3-none-any.whl
 ```
 
-### 2. 启动
+### 2. Flash Firmware
 
-将 Gateway 模式的 ESP32 通过 USB 连接到电脑，然后运行：
+Pre-built firmware binaries are in the `bin/` directory. No build environment required.
 
-```bash
-box2driver                     # 自动检测串口，启动 Web + STS 虚拟串口
-box2driver -p COM5             # 指定串口
-box2driver --bridge            # 同时启动 com0com/socat 虚拟 COM 口
-box2driver --no-web            # 不启动 Web，只启动虚拟串口
-box2driver --list              # 列出可用串口
-```
+**Update firmware (factory-flashed devices)**
 
-启动后自动：
-1. 检测平台和虚拟串口驱动 (Windows: com0com / Linux: socat / macOS: socat)
-2. 连接 Gateway WebSocket
-3. 发现所有 ESP32 设备 (Follower、Leader 等)
-4. 为每个设备创建独立虚拟串口
-5. 打印端口映射表
-
-```
-  Device      | MAC           | Servos    | Port
-  ------------|---------------|-----------|--------------------
-  Follower    | ...2D:B6:94 | ID=2      | COM51
-  Leader      | ...2C:3E:28 | ID=1-6    | socket://localhost:6570
-```
-
-**Windows**: 打开 FD 软件 → 选择 COM51 → 波特率 1000000 → 搜索舵机
-**Linux/macOS**: `scservo_sdk` 使用 `PortHandler('/tmp/vservo0')`
-
-跨平台虚拟串口前置安装：
-
-| 平台 | 安装命令 |
-|------|---------|
-| Windows | 安装 [com0com](https://sourceforge.net/projects/com0com/)，管理员运行: `setupc install PortName=COM50 PortName=COM51` |
-| Ubuntu | `sudo apt install -y socat` |
-| macOS | `brew install socat` |
-
-### 3. Python API 使用
-
-```python
-from box2driver_client import Box2DriverClient
-
-# 快照模式
-client = Box2DriverClient()
-client.start()
-positions = client.get_all_positions()
-client.send_positions([{"id": 1, "pos": 2048}])
-client.stop()
-
-# 迭代器模式
-for dev_id, frame in client.stream():
-    print(dev_id, frame['servos'])
-```
-
-## 功能详解
-
-### Gateway Dashboard
-
-Web 可视化面板，支持：
-- 多臂实时波形图
-- JoyCon 6DOF 姿态显示
-- 设备列表与状态监控
-- 控制面板 (力矩开关、位置发送)
-- 轨迹录制与回放
-
-```bash
-box2driver -p COM5 --port 8080
-```
-
-### 键盘控制 (IK / 关节空间)
-
-```bash
-python examples/keyboard_ik_control.py               # IK 模式
-python examples/keyboard_ik_control.py --mode joint   # 关节模式
-python examples/keyboard_ik_control.py --mac AA:BB:CC:DD:EE:FF  # 指定目标
-```
-
-**IK 模式键位：**
-
-| 按键 | 功能 | 按键 | 功能 |
-|------|------|------|------|
-| W/S | X 前进/后退 | Q/E | Roll +/- |
-| A/D | Y 左/右 | G/T | Pitch +/- |
-| R/F | Z 上/下 | Z/C | 夹爪 开/合 |
-| 0 | 回到初始位 | ESC | 退出 |
-
-**关节模式键位：**
-
-| 按键 | 功能 | 按键 | 功能 |
-|------|------|------|------|
-| 1/Q | 关节1 底座 +/- | 4/R | 关节4 腕俯仰 +/- |
-| 2/W | 关节2 肩部 +/- | 5/T | 关节5 腕翻转 +/- |
-| 3/E | 关节3 肘部 +/- | 6/Y | 关节6 夹爪 +/- |
-
-IK 模式额外依赖：
-```bash
-pip install pynput
-git clone https://github.com/box-robotics/lerobot-kinematics.git
-cd lerobot-kinematics && pip install -e .
-```
-
-### LeRobot 数据集采集
-
-```bash
-python scripts/gateway_dashboard.py -p COM5
-python scripts/lerobot_collect.py --repo-id box2driver/pick_cup
-python scripts/lerobot_collect.py --repo-id box2driver/pick_cup --duration 10 --num-episodes 5
-```
-
-完整依赖：
-```bash
-pip install -r requirements-lerobot.txt
-git clone https://github.com/huggingface/lerobot.git
-cd lerobot && pip install -e .
-```
-
-### LeRobot 模型部署
-
-```bash
-python scripts/lerobot_deploy.py \
-    --policy-path ./outputs/train/act_box2driver/checkpoints/last/pretrained_model
-```
-
-### JoyCon IK 桥接
-
-```bash
-python scripts/joycon_ik_bridge.py
-python scripts/joycon_ik_bridge.py --no-ik
-```
-
-## 固件烧录
-
-预编译固件在 `bin/` 目录下。
-
-### 更新固件 (出厂已烧录过)
-
-出厂已完整烧录过一次，后续版本更新**只需烧录 firmware.bin 一个文件**：
+If the device was previously flashed, only the firmware.bin file is needed:
 
 ```bash
 pip install esptool
@@ -197,17 +70,17 @@ esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
     0x10000 bin/box2driver_v0.4.4_firmware.bin
 ```
 
-或使用乐鑫烧录工具：firmware.bin → 地址 0x10000
+Or use the Espressif Flash Download Tool: firmware.bin → address 0x10000
 
-### 首次完整烧录 (新板子)
+**First-time full flash (new boards)**
 
-需要烧录全部 3 个文件：
+All 3 files are required:
 
-| 文件 | 地址 | 说明 |
-|------|------|------|
-| box2driver_v0.4.4_bootloader.bin | 0x1000 | 引导程序 |
-| box2driver_v0.4.4_partitions.bin | 0x8000 | 分区表 |
-| box2driver_v0.4.4_firmware.bin | 0x10000 | 应用固件 |
+| File | Address | Description |
+|------|---------|-------------|
+| box2driver_v0.4.4_bootloader.bin | 0x1000 | Bootloader |
+| box2driver_v0.4.4_partitions.bin | 0x8000 | Partition table |
+| box2driver_v0.4.4_firmware.bin | 0x10000 | Application firmware |
 
 ```bash
 esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
@@ -216,93 +89,234 @@ esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
     0x10000 bin/box2driver_v0.4.4_firmware.bin
 ```
 
-或使用 `flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI)。
+Or use `flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI).
 
-## 安装指南
+### 3. Launch
 
-### 基础安装 (Gateway + Client + 虚拟串口)
+Connect a Gateway-mode ESP32 to your PC via USB:
 
 ```bash
-conda create -n box2driver python=3.11 -y
-conda activate box2driver
-pip install dist/box2driver-0.4.4-py3-none-any.whl
+box2driver                     # Auto-detect serial port, start Web + STS virtual serial
+box2driver -p COM5             # Specify serial port
+box2driver --bridge            # Also start com0com/socat virtual COM port
+box2driver --no-web            # No web UI, virtual serial only
+box2driver --list              # List available serial ports
 ```
 
-### LeRobot 完整安装
+Or run the script directly:
 
 ```bash
-conda create -n box2driver-lerobot python=3.11 -y
-conda activate box2driver-lerobot
+python scripts/gateway_dashboard.py            # Auto-detect CP210x serial
+python scripts/gateway_dashboard.py -p COM5    # Specify port
+python scripts/gateway_dashboard.py --bridge   # Also start virtual serial bridge
+```
+
+After launch, the system automatically:
+1. Detects platform and virtual serial driver (Windows: com0com / Linux: socat / macOS: socat)
+2. Connects to Gateway WebSocket
+3. Discovers all ESP32 devices (Follower, Leader, etc.)
+4. Creates an independent virtual serial port for each device
+5. Prints the port mapping table
+
+```
+  Device      | MAC           | Servos    | Port
+  ------------|---------------|-----------|--------------------
+  Follower    | ...2D:B6:94 | ID=2      | COM51
+  Leader      | ...2C:3E:28 | ID=1-6    | socket://localhost:6570
+```
+
+**Windows**: Open FD software → select COM51 → baud rate 1000000 → scan servos
+**Linux/macOS**: Use `PortHandler('/tmp/vservo0')` with `scservo_sdk`
+
+Virtual serial driver prerequisites:
+
+| Platform | Installation |
+|----------|-------------|
+| Windows | Install [com0com](https://sourceforge.net/projects/com0com/), run as admin: `setupc install PortName=COM50 PortName=COM51` |
+| Ubuntu | `sudo apt install -y socat` |
+| macOS | `brew install socat` |
+
+### 4. Python API
+
+```python
+from box2driver_client import Box2DriverClient
+
+# Snapshot mode
+client = Box2DriverClient()
+client.start()
+positions = client.get_all_positions()
+client.send_positions([{"id": 1, "pos": 2048}])
+client.stop()
+
+# Streaming mode
+for dev_id, frame in client.stream():
+    print(dev_id, frame['servos'])
+```
+
+## Feature Details
+
+### Gateway Dashboard
+
+Web-based visualization panel:
+- Multi-arm real-time waveform charts
+- JoyCon 6DOF pose display
+- Device list and status monitoring
+- Control panel (torque toggle, position commands)
+- Trajectory recording and playback
+
+```bash
+box2driver -p COM5 --port 8080
+```
+
+### Keyboard Control (IK / Joint Space)
+
+```bash
+python examples/keyboard_ik_control.py               # IK mode
+python examples/keyboard_ik_control.py --mode joint   # Joint mode
+python examples/keyboard_ik_control.py --mac AA:BB:CC:DD:EE:FF  # Specify target
+```
+
+**IK mode key bindings:**
+
+| Key | Function | Key | Function |
+|-----|----------|-----|----------|
+| W/S | X forward/backward | Q/E | Roll +/- |
+| A/D | Y left/right | G/T | Pitch +/- |
+| R/F | Z up/down | Z/C | Gripper open/close |
+| 0 | Home position | ESC | Quit |
+
+**Joint mode key bindings:**
+
+| Key | Function | Key | Function |
+|-----|----------|-----|----------|
+| 1/Q | Joint 1 base +/- | 4/R | Joint 4 wrist pitch +/- |
+| 2/W | Joint 2 shoulder +/- | 5/T | Joint 5 wrist roll +/- |
+| 3/E | Joint 3 elbow +/- | 6/Y | Joint 6 gripper +/- |
+
+IK mode additional dependencies:
+```bash
+pip install pynput
+git clone https://github.com/box-robotics/lerobot-kinematics.git
+cd lerobot-kinematics && pip install -e .
+```
+
+### LeRobot Dataset Collection
+
+```bash
+python scripts/gateway_dashboard.py -p COM5
+python scripts/lerobot_collect.py --repo-id box2driver/pick_cup
+python scripts/lerobot_collect.py --repo-id box2driver/pick_cup --duration 10 --num-episodes 5
+```
+
+Full dependencies:
+```bash
 pip install -r requirements-lerobot.txt
 git clone https://github.com/huggingface/lerobot.git
 cd lerobot && pip install -e .
 ```
 
-### 虚拟串口驱动安装
+### LeRobot Model Deployment
 
-**Windows (com0com)**:
-1. 下载安装 [com0com](https://sourceforge.net/projects/com0com/)
-2. 以管理员身份运行 CMD：
-   ```
-   "C:\Program Files (x86)\com0com\setupc.exe" install PortName=COM50 PortName=COM51
-   ```
-3. 如需多个设备，创建更多端口对：
-   ```
-   "C:\Program Files (x86)\com0com\setupc.exe" install PortName=COM52 PortName=COM53
-   ```
-
-**Ubuntu 20.04 / 22.04 / 24.04**:
 ```bash
-sudo apt install -y socat
+python scripts/lerobot_deploy.py \
+    --policy-path ./outputs/train/act_box2driver/checkpoints/last/pretrained_model
 ```
 
-**macOS**:
+### JoyCon IK Bridge
+
 ```bash
-brew install socat
+python scripts/joycon_ik_bridge.py
+python scripts/joycon_ik_bridge.py --no-ik
 ```
 
-## LED 指示灯
+## 5 Device Modes
 
-板载 2 颗 WS2812 RGB LED（GPIO23），左灯 (LED0) 指示**当前模式**，右灯 (LED1) 指示**当前状态**。
+Switch by long-pressing the BOOT button. Last selection is saved in NVS:
 
-**LED0 — 模式指示（常亮）：**
+| Mode | Servos | Function |
+|------|--------|----------|
+| Follower | Read/Write | Receive sync → write servos → feedback |
+| Leader | Read-only | Read positions → sync → feedback |
+| M-Leader | Read-only | Same as Leader but broadcast to multiple Followers |
+| Gateway | None | ESP-NOW ↔ Serial JSON bridge |
+| JoyCon | None | Bluetooth controller → IK → sync |
 
-| 模式 | 颜色 |
-|------|------|
-| Follower | 绿色 |
-| Leader | 蓝色 |
-| M-Leader | 暗蓝 |
-| Gateway | 紫色 |
-| JoyCon | 灰色 |
+## LED Indicators
 
-**LED1 — 状态指示：**
+Two onboard WS2812 RGB LEDs (GPIO23). Left LED (LED0) shows **current mode**, right LED (LED1) shows **current status**.
 
-| 状态 | 颜色 | 表现 | 触发条件 |
-|------|------|------|----------|
-| 搜索/掉线 | 橙色 | 闪烁 | 搜索舵机中、Leader 掉线 |
-| 等待 | 蓝色 | 常亮 | 空闲等待连接 |
-| 待确认 | 深蓝 | 闪烁 | 收到 Leader 握手，等待按键确认 |
-| 已连接 | 绿色 | 常亮 | 绑定正常，同步运行中 |
-| 被接管 | 紫色 | 常亮 | Gateway/PC 控制中 |
-| 超负载 | 红色 | 两灯闪烁 | 力矩保护触发 |
+**LED0 — Mode (solid):**
 
-> 设计原则：偏红色 = 异常/故障，偏绿色 = 正常运行，蓝色系 = 等待中，紫色 = 外部接管。
+| Mode | Color |
+|------|-------|
+| Follower | Green |
+| Leader | Blue |
+| M-Leader | Dark blue |
+| Gateway | Purple |
+| JoyCon | Gray |
 
-## 版本历史
+**LED1 — Status:**
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v0.4.4 | 2026-03-19 | RGB 双灯系统 (模式+状态)、修复 RMT 通道冲突、修复模式切换力矩竞态、集成 STS TCP 虚拟串口 |
-| v0.4.3 | 2026-03-18 | 虚拟 COM 桥接完整 STS 协议、Gateway 控制稳定性、WS 断连保护 |
-| v0.4.2 | 2026-03-18 | 虚拟舵机串口桥接 (跨平台一键启动)、多设备自动检测、com0com/socat 支持 |
-| v0.4.1 | 2026-03-17 | 30Hz 参数修正、快速使用章节、表格优化、键盘 IK 控制示例 |
+| Status | Color | Pattern | Trigger |
+|--------|-------|---------|---------|
+| Searching / Disconnected | Orange | Blinking | Scanning servos, Leader disconnected |
+| Waiting | Blue | Solid | Idle, waiting for connection |
+| Pending confirmation | Dark blue | Blinking | Received Leader handshake, awaiting button press |
+| Connected | Green | Solid | Bound and syncing |
+| Taken over | Purple | Solid | Controlled by Gateway/PC |
+| Overloaded | Red | Both LEDs blinking | Torque protection triggered |
 
-## 许可证
+> Design principle: Red = fault, Green = normal, Blue = waiting, Purple = external control.
+
+## Directory Structure
+
+```
+lerobot-esp32/
+├── scripts/                          # Core scripts
+│   ├── gateway_dashboard.py          # Gateway Web Dashboard server
+│   ├── gateway_dashboard.html        # Dashboard frontend
+│   ├── virtual_servo_bridge.py       # Virtual servo serial bridge
+│   ├── start_servo_bridge.bat        # Windows launcher
+│   ├── start_servo_bridge.sh         # Linux/macOS launcher
+│   ├── box2driver_client.py          # Python Client API
+│   ├── lerobot_collect.py            # LeRobot dataset collection
+│   ├── lerobot_deploy.py             # LeRobot model deployment
+│   ├── joycon_ik_bridge.py           # JoyCon → IK → Follower
+│   ├── compare_servo_protocol.py     # STS protocol debug tool
+│   ├── gateway_recv.py               # Simple serial receiver (debug)
+│   ├── example_collect.py            # Data collection example
+│   ├── generate_manual.py            # Manual generator
+│   └── check_env.py                  # Environment checker
+├── examples/                         # Example scripts
+│   └── keyboard_ik_control.py        # Keyboard IK / joint-space control
+├── bin/                              # Pre-built firmware (v0.4.4)
+│   ├── box2driver_v0.4.4_firmware.bin
+│   ├── box2driver_v0.4.4_bootloader.bin
+│   └── box2driver_v0.4.4_partitions.bin
+├── dist_pkg/                         # Pre-built Python package
+│   └── box2driver-0.4.4-py3-none-any.whl
+├── flash_download_tool/              # Espressif Flash Download Tool
+├── ESP32-CAM/                        # ESP32-CAM camera resources
+├── requirements.txt                  # Basic dependencies
+├── requirements-lerobot.txt          # LeRobot full dependencies
+└── VERSION
+```
+
+## Changelog
+
+| Version | Date | Notes |
+|---------|------|-------|
+| v0.4.4 | 2026-03-19 | Dual RGB LED system (mode+status), RMT channel conflict fix, mode-switch torque race fix, integrated STS TCP virtual serial |
+| v0.4.3 | 2026-03-18 | Full STS protocol for virtual COM bridge, Gateway control stability, WS disconnect protection |
+| v0.4.2 | 2026-03-18 | Virtual servo serial bridge (cross-platform), multi-device auto-detection, com0com/socat support |
+| v0.4.1 | 2026-03-17 | 30Hz parameter tuning, quick-start section, keyboard IK control example |
+
+## License
 
 Apache 2.0 License
 
-## 相关链接
+## Links
 
-- [Box2Driver D1 固件源码](https://github.com/nicekwell/Box2Driver_D1_joycon)
+- [Box2Driver D1 Firmware Source](https://github.com/nicekwell/Box2Driver_D1_joycon)
 - [LeRobot](https://github.com/huggingface/lerobot)
 - [lerobot-kinematics](https://github.com/box-robotics/lerobot-kinematics)
