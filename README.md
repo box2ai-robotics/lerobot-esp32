@@ -311,6 +311,8 @@ lerobot-esp32/
 | v0.4.2 | 2026-03-18 | Virtual servo serial bridge (cross-platform), multi-device auto-detection, com0com/socat support |
 | v0.4.1 | 2026-03-17 | 30Hz parameter tuning, quick-start section, keyboard IK control example |
 
+If this project helps you, please give it a star!
+
 ## License
 
 Apache 2.0 License
