@@ -2,6 +2,8 @@ English | [中文](README_zh.md)
 
 # LeRobot-ESP32: Fully Wireless LeRobot Arm Control
 
+![LeRobot-ESP32 Demo](assets/capture.png)
+
 **Cut the cables. Set your LeRobot free.**
 
 LeRobot-ESP32 uses ESP-NOW wireless protocol to deliver fully wireless teleoperation, data collection, and AI deployment for LeRobot robot arms. No cables between Leader and Follower — just 30Hz sync with <5ms latency, plus a complete PC toolchain from data collection to model deployment.
@@ -46,6 +48,20 @@ LeRobot-ESP32 uses ESP-NOW wireless protocol to deliver fully wireless teleopera
 - **JoyCon IK Bridge** — Joy-Con controller pose → IK → robot arm
 - **Pre-built Firmware** — Flash and go, no build environment needed
 
+## Hardware
+
+<div align="center">
+  <a href="https://item.taobao.com/item.htm?abbucket=5&id=1030962099420">
+    <img src="assets/hardware.jpg" alt="Box2AI Hardware" width="400"/>
+  </a>
+  <br>
+  <a href="https://item.taobao.com/item.htm?abbucket=5&id=1030962099420">Purchase the Box2AI controller board (Taobao)</a>
+</div>
+
+**Schematic:**
+
+![Box2AI Schematic](assets/hardware_SchDoc.png)
+
 ## Quick Start
 
 ### 1. Install
@@ -56,42 +72,7 @@ conda activate box2driver
 pip install dist_pkg/box2driver-0.4.4-py3-none-any.whl
 ```
 
-### 2. Flash Firmware
-
-Pre-built firmware binaries are in the `bin/` directory. No build environment required.
-
-**Update firmware (factory-flashed devices)**
-
-If the device was previously flashed, only the firmware.bin file is needed:
-
-```bash
-pip install esptool
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
-```
-
-Or use the Espressif Flash Download Tool: firmware.bin → address 0x10000
-
-**First-time full flash (new boards)**
-
-All 3 files are required:
-
-| File | Address | Description |
-|------|---------|-------------|
-| box2driver_v0.4.4_bootloader.bin | 0x1000 | Bootloader |
-| box2driver_v0.4.4_partitions.bin | 0x8000 | Partition table |
-| box2driver_v0.4.4_firmware.bin | 0x10000 | Application firmware |
-
-```bash
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x1000 bin/box2driver_v0.4.4_bootloader.bin \
-    0x8000 bin/box2driver_v0.4.4_partitions.bin \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
-```
-
-Or use `flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI).
-
-### 3. Launch
+### 2. Launch
 
 Connect a Gateway-mode ESP32 to your PC via USB:
 
@@ -101,14 +82,6 @@ box2driver -p COM5             # Specify serial port
 box2driver --bridge            # Also start com0com/socat virtual COM port
 box2driver --no-web            # No web UI, virtual serial only
 box2driver --list              # List available serial ports
-```
-
-Or run the script directly:
-
-```bash
-python scripts/gateway_dashboard.py            # Auto-detect CP210x serial
-python scripts/gateway_dashboard.py -p COM5    # Specify port
-python scripts/gateway_dashboard.py --bridge   # Also start virtual serial bridge
 ```
 
 After launch, the system automatically:
@@ -136,7 +109,7 @@ Virtual serial driver prerequisites:
 | Ubuntu | `sudo apt install -y socat` |
 | macOS | `brew install socat` |
 
-### 4. Python API
+### 3. Python API
 
 ```python
 from box2driver_client import Box2DriverClient
@@ -152,6 +125,41 @@ client.stop()
 for dev_id, frame in client.stream():
     print(dev_id, frame['servos'])
 ```
+
+## Update Firmware
+
+Pre-built firmware binaries are in the `bin/` directory. Devices ship with firmware pre-flashed.
+
+**Update firmware (factory-flashed devices)**
+
+Only the firmware.bin file is needed for updates:
+
+```bash
+pip install esptool
+esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
+    0x10000 bin/box2driver_v0.4.4_firmware.bin
+```
+
+Or use the Espressif Flash Download Tool: firmware.bin → address 0x10000
+
+**First-time full flash (new boards)**
+
+All 3 files are required:
+
+| File | Address | Description |
+|------|---------|-------------|
+| box2driver_v0.4.4_bootloader.bin | 0x1000 | Bootloader |
+| box2driver_v0.4.4_partitions.bin | 0x8000 | Partition table |
+| box2driver_v0.4.4_firmware.bin | 0x10000 | Application firmware |
+
+```bash
+esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
+    0x1000 bin/box2driver_v0.4.4_bootloader.bin \
+    0x8000 bin/box2driver_v0.4.4_partitions.bin \
+    0x10000 bin/box2driver_v0.4.4_firmware.bin
+```
+
+Or use `bin/flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI).
 
 ## Feature Details
 
@@ -200,33 +208,24 @@ git clone https://github.com/box-robotics/lerobot-kinematics.git
 cd lerobot-kinematics && pip install -e .
 ```
 
-### LeRobot Dataset Collection
+### Record & Replay
 
 ```bash
-python scripts/gateway_dashboard.py -p COM5
-python scripts/lerobot_collect.py --repo-id box2driver/pick_cup
-python scripts/lerobot_collect.py --repo-id box2driver/pick_cup --duration 10 --num-episodes 5
+python examples/record_replay.py
 ```
 
-Full dependencies:
+### LeRobot Integration
+
+Full LeRobot AI pipeline: teleoperation data collection → policy training → inference deployment.
+
 ```bash
-pip install -r requirements-lerobot.txt
+# Install LeRobot
+pip install -r requirements.txt
 git clone https://github.com/huggingface/lerobot.git
 cd lerobot && pip install -e .
-```
 
-### LeRobot Model Deployment
-
-```bash
-python scripts/lerobot_deploy.py \
-    --policy-path ./outputs/train/act_box2driver/checkpoints/last/pretrained_model
-```
-
-### JoyCon IK Bridge
-
-```bash
-python scripts/joycon_ik_bridge.py
-python scripts/joycon_ik_bridge.py --no-ik
+# Data collection example
+python scripts/example_collect.py
 ```
 
 ## 5 Device Modes
@@ -272,33 +271,31 @@ Two onboard WS2812 RGB LEDs (GPIO23). Left LED (LED0) shows **current mode**, ri
 
 ```
 lerobot-esp32/
-├── scripts/                          # Core scripts
-│   ├── gateway_dashboard.py          # Gateway Web Dashboard server
-│   ├── gateway_dashboard.html        # Dashboard frontend
-│   ├── virtual_servo_bridge.py       # Virtual servo serial bridge
-│   ├── start_servo_bridge.bat        # Windows launcher
-│   ├── start_servo_bridge.sh         # Linux/macOS launcher
-│   ├── box2driver_client.py          # Python Client API
-│   ├── lerobot_collect.py            # LeRobot dataset collection
-│   ├── lerobot_deploy.py             # LeRobot model deployment
-│   ├── joycon_ik_bridge.py           # JoyCon → IK → Follower
-│   ├── compare_servo_protocol.py     # STS protocol debug tool
-│   ├── gateway_recv.py               # Simple serial receiver (debug)
-│   ├── example_collect.py            # Data collection example
-│   ├── generate_manual.py            # Manual generator
-│   └── check_env.py                  # Environment checker
-├── examples/                         # Example scripts
-│   └── keyboard_ik_control.py        # Keyboard IK / joint-space control
-├── bin/                              # Pre-built firmware (v0.4.4)
+├── assets/                              # Images
+│   ├── capture.png                      # Demo photo
+│   ├── hardware.jpg                     # Hardware photo
+│   └── hardware_SchDoc.png             # Schematic
+├── bin/                                 # Pre-built firmware (v0.4.4)
 │   ├── box2driver_v0.4.4_firmware.bin
 │   ├── box2driver_v0.4.4_bootloader.bin
-│   └── box2driver_v0.4.4_partitions.bin
-├── dist_pkg/                         # Pre-built Python package
+│   ├── box2driver_v0.4.4_partitions.bin
+│   └── flash_download_tool/             # Espressif Flash Download Tool
+├── dist_pkg/                            # Pre-built Python package
 │   └── box2driver-0.4.4-py3-none-any.whl
-├── flash_download_tool/              # Espressif Flash Download Tool
-├── ESP32-CAM/                        # ESP32-CAM camera resources
-├── requirements.txt                  # Basic dependencies
-├── requirements-lerobot.txt          # LeRobot full dependencies
+├── scripts/                             # Utility scripts
+│   ├── check_env.py                     # Environment checker
+│   ├── check_firmware.py                # Firmware version checker
+│   ├── example_collect.py               # Data collection example
+│   ├── compare_servo_protocol.py        # STS protocol debug tool
+│   ├── start_servo_bridge.bat           # Windows virtual serial launcher
+│   └── start_servo_bridge.sh            # Linux/macOS virtual serial launcher
+├── examples/                            # Example scripts
+│   ├── keyboard_ik_control.py           # Keyboard IK / joint-space control
+│   ├── record_replay.py                 # Record & replay trajectories
+│   ├── so100_kinematics.py              # SO-100 kinematics example
+│   └── docs/
+│       └── virtual_com_setup.md         # Virtual COM setup guide
+├── requirements.txt                     # Dependencies
 └── VERSION
 ```
 
@@ -319,6 +316,5 @@ Apache 2.0 License
 
 ## Links
 
-- [Box2Driver D1 Firmware Source](https://github.com/nicekwell/Box2Driver_D1_joycon)
 - [LeRobot](https://github.com/huggingface/lerobot)
 - [lerobot-kinematics](https://github.com/box-robotics/lerobot-kinematics)
