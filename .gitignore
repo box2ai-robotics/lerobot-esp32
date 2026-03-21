@@ -38,7 +38,7 @@ ESP32-CAM/
 flash_download_tool/dl_temp/
 flash_download_tool/logs/
 
-# Source code (not for distribution)
+# Source code (not for distribution; also covers dist_pkg/ subdirs)
 box2driver/
 box2driver_obf/
 build_package.py
