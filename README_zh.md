@@ -311,6 +311,8 @@ python scripts/joycon_ik_bridge.py --no-ik
 | v0.4.2 | 2026-03-18 | 虚拟舵机串口桥接 (跨平台一键启动)、多设备自动检测、com0com/socat 支持 |
 | v0.4.1 | 2026-03-17 | 30Hz 参数修正、快速使用章节、表格优化、键盘 IK 控制示例 |
 
+如果对你有帮助，请点一下 Star！
+
 ## 许可证
 
 Apache 2.0 License
