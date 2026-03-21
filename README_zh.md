@@ -2,6 +2,8 @@
 
 # LeRobot-ESP32: 全无线 LeRobot 机械臂控制方案
 
+![LeRobot-ESP32 Demo](assets/capture.png)
+
 **告别线材束缚，让 LeRobot 真正自由。**
 
 LeRobot-ESP32 基于 ESP-NOW 无线协议，实现 LeRobot 机械臂的全无线遥操作、数据采集与 AI 部署。Leader-Follower 之间无需任何线缆连接，30Hz 同步、<5ms 延迟，配合 PC 端工具链即可完成从数据采集到模型部署的完整工作流。
@@ -46,39 +48,19 @@ LeRobot-ESP32 基于 ESP-NOW 无线协议，实现 LeRobot 机械臂的全无线
 - **JoyCon IK 桥接** — Joy-Con 手柄姿态 → IK → 机械臂
 - **预编译固件** — 开箱即烧录，无需搭建编译环境
 
-## 目录结构
+## 硬件
 
-```
-lerobot-esp32/
-├── scripts/                          # 核心脚本
-│   ├── gateway_dashboard.py          # Gateway Web Dashboard 服务端
-│   ├── gateway_dashboard.html        # Dashboard 前端页面
-│   ├── virtual_servo_bridge.py       # 虚拟舵机串口桥接
-│   ├── start_servo_bridge.bat        # Windows 双击启动
-│   ├── start_servo_bridge.sh         # Linux/macOS 启动
-│   ├── box2driver_client.py          # Python Client API
-│   ├── lerobot_collect.py            # LeRobot 数据集采集
-│   ├── lerobot_deploy.py             # LeRobot 模型推理部署
-│   ├── joycon_ik_bridge.py           # JoyCon → IK → Follower
-│   ├── compare_servo_protocol.py     # STS 协议对比调试工具
-│   ├── gateway_recv.py               # 简易串口接收 (调试用)
-│   ├── example_collect.py            # 数据采集示例
-│   ├── generate_manual.py            # 用户说明书生成器
-│   └── check_env.py                  # 环境检查工具
-├── examples/                         # 示例脚本
-│   └── keyboard_ik_control.py        # 键盘 IK/关节空间 控制示例
-├── bin/                              # 预编译固件 (v0.4.4)
-│   ├── box2driver_v0.4.4_firmware.bin
-│   ├── box2driver_v0.4.4_bootloader.bin
-│   └── box2driver_v0.4.4_partitions.bin
-├── dist_pkg/                         # 预编译 Python 包
-│   └── box2driver-0.4.4-py3-none-any.whl
-├── flash_download_tool/              # 乐鑫烧录工具
-├── ESP32-CAM/                        # ESP32-CAM 摄像头资料
-├── requirements.txt                  # 基础依赖
-├── requirements-lerobot.txt          # LeRobot 完整依赖
-└── VERSION
-```
+<div align="center">
+  <a href="https://item.taobao.com/item.htm?abbucket=5&id=1030962099420">
+    <img src="assets/hardware.jpg" alt="Box2AI 控制板" width="400"/>
+  </a>
+  <br>
+  <a href="https://item.taobao.com/item.htm?abbucket=5&id=1030962099420">购买 Box2AI 控制板 (淘宝)</a>
+</div>
+
+**电路原理图：**
+
+![Box2AI 电路原理图](assets/hardware_SchDoc.png)
 
 ## 快速开始
 
@@ -90,42 +72,7 @@ conda activate box2driver
 pip install dist_pkg/box2driver-0.4.4-py3-none-any.whl
 ```
 
-### 2. 烧录固件
-
-预编译固件在 `bin/` 目录下，无需搭建编译环境。
-
-**更新固件 (出厂已烧录过)**
-
-出厂已完整烧录过一次，后续版本更新**只需烧录 firmware.bin 一个文件**：
-
-```bash
-pip install esptool
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
-```
-
-或使用乐鑫烧录工具：firmware.bin → 地址 0x10000
-
-**首次完整烧录 (新板子)**
-
-需要烧录全部 3 个文件：
-
-| 文件 | 地址 | 说明 |
-|------|------|------|
-| box2driver_v0.4.4_bootloader.bin | 0x1000 | 引导程序 |
-| box2driver_v0.4.4_partitions.bin | 0x8000 | 分区表 |
-| box2driver_v0.4.4_firmware.bin | 0x10000 | 应用固件 |
-
-```bash
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x1000 bin/box2driver_v0.4.4_bootloader.bin \
-    0x8000 bin/box2driver_v0.4.4_partitions.bin \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
-```
-
-或使用 `flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI)。
-
-### 3. 启动
+### 2. 启动
 
 将 Gateway 模式的 ESP32 通过 USB 连接到电脑：
 
@@ -135,14 +82,6 @@ box2driver -p COM5             # 指定串口
 box2driver --bridge            # 同时启动 com0com/socat 虚拟 COM 口
 box2driver --no-web            # 不启动 Web，只启动虚拟串口
 box2driver --list              # 列出可用串口
-```
-
-或直接运行脚本：
-
-```bash
-python scripts/gateway_dashboard.py            # 自动检测 CP210x 串口
-python scripts/gateway_dashboard.py -p COM5    # 指定串口
-python scripts/gateway_dashboard.py --bridge   # 同时启动虚拟串口
 ```
 
 启动后自动：
@@ -170,7 +109,7 @@ python scripts/gateway_dashboard.py --bridge   # 同时启动虚拟串口
 | Ubuntu | `sudo apt install -y socat` |
 | macOS | `brew install socat` |
 
-### 4. Python API 使用
+### 3. Python API 使用
 
 ```python
 from box2driver_client import Box2DriverClient
@@ -186,6 +125,41 @@ client.stop()
 for dev_id, frame in client.stream():
     print(dev_id, frame['servos'])
 ```
+
+## 固件更新
+
+预编译固件在 `bin/` 目录下，出厂设备已预烧录固件。
+
+**更新固件 (出厂已烧录过)**
+
+后续版本更新**只需烧录 firmware.bin 一个文件**：
+
+```bash
+pip install esptool
+esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
+    0x10000 bin/box2driver_v0.4.4_firmware.bin
+```
+
+或使用乐鑫烧录工具：firmware.bin → 地址 0x10000
+
+**首次完整烧录 (新板子)**
+
+需要烧录全部 3 个文件：
+
+| 文件 | 地址 | 说明 |
+|------|------|------|
+| box2driver_v0.4.4_bootloader.bin | 0x1000 | 引导程序 |
+| box2driver_v0.4.4_partitions.bin | 0x8000 | 分区表 |
+| box2driver_v0.4.4_firmware.bin | 0x10000 | 应用固件 |
+
+```bash
+esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
+    0x1000 bin/box2driver_v0.4.4_bootloader.bin \
+    0x8000 bin/box2driver_v0.4.4_partitions.bin \
+    0x10000 bin/box2driver_v0.4.4_firmware.bin
+```
+
+或使用 `bin/flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI)。
 
 ## 功能详解
 
@@ -234,33 +208,24 @@ git clone https://github.com/box-robotics/lerobot-kinematics.git
 cd lerobot-kinematics && pip install -e .
 ```
 
-### LeRobot 数据集采集
+### 录制与回放
 
 ```bash
-python scripts/gateway_dashboard.py -p COM5
-python scripts/lerobot_collect.py --repo-id box2driver/pick_cup
-python scripts/lerobot_collect.py --repo-id box2driver/pick_cup --duration 10 --num-episodes 5
+python examples/record_replay.py
 ```
 
-完整依赖：
+### LeRobot 集成
+
+完整 LeRobot AI 管线：示教数据采集 → 策略训练 → 推理部署。
+
 ```bash
-pip install -r requirements-lerobot.txt
+# 安装 LeRobot
+pip install -r requirements.txt
 git clone https://github.com/huggingface/lerobot.git
 cd lerobot && pip install -e .
-```
 
-### LeRobot 模型部署
-
-```bash
-python scripts/lerobot_deploy.py \
-    --policy-path ./outputs/train/act_box2driver/checkpoints/last/pretrained_model
-```
-
-### JoyCon IK 桥接
-
-```bash
-python scripts/joycon_ik_bridge.py
-python scripts/joycon_ik_bridge.py --no-ik
+# 数据采集示例
+python scripts/example_collect.py
 ```
 
 ## 5 种设备模式
@@ -302,6 +267,38 @@ python scripts/joycon_ik_bridge.py --no-ik
 
 > 设计原则：偏红色 = 异常/故障，偏绿色 = 正常运行，蓝色系 = 等待中，紫色 = 外部接管。
 
+## 目录结构
+
+```
+lerobot-esp32/
+├── assets/                              # 图片资源
+│   ├── capture.png                      # 产品演示图
+│   ├── hardware.jpg                     # 硬件实物图
+│   └── hardware_SchDoc.png             # 电路原理图
+├── bin/                                 # 预编译固件 (v0.4.4)
+│   ├── box2driver_v0.4.4_firmware.bin
+│   ├── box2driver_v0.4.4_bootloader.bin
+│   ├── box2driver_v0.4.4_partitions.bin
+│   └── flash_download_tool/             # 乐鑫烧录工具
+├── dist_pkg/                            # 预编译 Python 包
+│   └── box2driver-0.4.4-py3-none-any.whl
+├── scripts/                             # 工具脚本
+│   ├── check_env.py                     # 环境检查工具
+│   ├── check_firmware.py                # 固件版本检查
+│   ├── example_collect.py               # 数据采集示例
+│   ├── compare_servo_protocol.py        # STS 协议调试工具
+│   ├── start_servo_bridge.bat           # Windows 虚拟串口启动
+│   └── start_servo_bridge.sh            # Linux/macOS 虚拟串口启动
+├── examples/                            # 示例脚本
+│   ├── keyboard_ik_control.py           # 键盘 IK/关节空间 控制
+│   ├── record_replay.py                 # 轨迹录制与回放
+│   ├── so100_kinematics.py              # SO-100 运动学示例
+│   └── docs/
+│       └── virtual_com_setup.md         # 虚拟串口配置指南
+├── requirements.txt                     # 依赖
+└── VERSION
+```
+
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
@@ -319,6 +316,5 @@ Apache 2.0 License
 
 ## 相关链接
 
-- [Box2Driver D1 固件源码](https://github.com/nicekwell/Box2Driver_D1_joycon)
 - [LeRobot](https://github.com/huggingface/lerobot)
 - [lerobot-kinematics](https://github.com/box-robotics/lerobot-kinematics)

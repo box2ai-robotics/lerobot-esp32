@@ -43,8 +43,10 @@ box2driver/
 box2driver_obf/
 build_package.py
 pyproject.toml
+docs/
 
 # AI Assistant
 CLAUDE.md
 claude_md/
 .claude/
+.~xDriver_D1_用户说明书_V0_4_4.docx
