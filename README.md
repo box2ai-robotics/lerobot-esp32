@@ -62,6 +62,19 @@ LeRobot-ESP32 uses ESP-NOW wireless protocol to deliver fully wireless teleopera
 
 ![Box2AI Schematic](assets/hardware_SchDoc.png)
 
+### Servo Cable Wiring — Feetech vs Hiwonder
+
+Box2Driver v0.4.5+ supports both **Feetech (飞特)** and **Hiwonder (幻尔)** bus servos. The firmware auto-detects the servo type on boot, but **the two brands use different cable connector orientations** — please identify your servo brand and prepare the correct cables before wiring.
+
+![Feetech vs Hiwonder Cable](assets/Hiwonder-feetech.png)
+
+| Brand | Connector orientation | Description |
+|-------|----------------------|-------------|
+| **Hiwonder (幻尔)** | Same direction (同向) | Both connectors face the same way |
+| **Feetech (飞特)** | Reversed (反向) | Connectors face opposite directions |
+
+> **Warning:** Using the wrong cable orientation may cause reversed pin order (signal/power/GND swap), which can damage your servos or controller board. Always verify the cable matches your servo brand before connecting.
+
 ## Quick Start
 
 ### 1. Install
@@ -273,6 +286,8 @@ Two onboard WS2812 RGB LEDs (GPIO23). Left LED (LED0) shows **current mode**, ri
 lerobot-esp32/
 ├── assets/                              # Images
 │   ├── capture.png                      # Demo photo
+│   ├── half_encode.jpg                  # Half-position calibration pose
+│   ├── Hiwonder-feetech.png            # Servo cable orientation comparison
 │   ├── hardware.jpg                     # Hardware photo
 │   └── hardware_SchDoc.png             # Schematic
 ├── bin/                                 # Pre-built firmware (v0.4.4)
@@ -287,6 +302,7 @@ lerobot-esp32/
 │   ├── check_firmware.py                # Firmware version checker
 │   ├── example_collect.py               # Data collection example
 │   ├── compare_servo_protocol.py        # STS protocol debug tool
+│   ├── set_motors_half_encode.py        # Motor encoder offset calibration
 │   ├── start_servo_bridge.bat           # Windows virtual serial launcher
 │   └── start_servo_bridge.sh            # Linux/macOS virtual serial launcher
 ├── examples/                            # Example scripts
@@ -299,10 +315,43 @@ lerobot-esp32/
 └── VERSION
 ```
 
+## FAQ
+
+### Leader and Follower arms don't match in position/pose
+
+This is caused by inconsistent encoder values due to different motor installation positions. You can fix this by writing encoder offsets using the calibration script.
+
+**Steps:**
+
+1. Physically align all servo motors of the arm to the half-position pose (each joint at mechanical center). Refer to the image below:
+
+   ![Half Encode Pose](assets/half_encode.jpg)
+
+2. Connect **one arm at a time** to the PC using a **USB-to-TTL adapter board** (not via the Box2Driver controller), then run:
+
+   ```bash
+   pip install scservo-sdk pyserial
+   python scripts/set_motors_half_encode.py -p COM5          # Auto-detect servo type
+   python scripts/set_motors_half_encode.py -p COM5 -t feetech   # Force Feetech
+   python scripts/set_motors_half_encode.py -p COM5 -t hiwonder  # Force Hiwonder
+   python scripts/set_motors_half_encode.py -p COM5 --max-id 8   # Scan ID 1~8
+   ```
+
+3. The script will:
+   - Auto-detect servo type (Feetech or Hiwonder) if not specified
+   - Scan and find all connected motors automatically
+   - Clear all existing encoder offsets
+   - Read the current position of each motor
+   - Calculate and write the offset so that the current position maps to center value (Feetech: 2048, Hiwonder: 500)
+   - Continuously print positions for verification (Ctrl+C to exit)
+
+4. Run this script on **both** Leader and Follower arms to ensure they share the same encoder reference.
+
 ## Changelog
 
 | Version | Date | Notes |
 |---------|------|-------|
+| v0.4.5 | 2026-03-23 | Hiwonder LX series bus servo support, auto-detect servo type (Feetech/Hiwonder) on boot, 115200 baud single-command mode |
 | v0.4.4 | 2026-03-19 | Dual RGB LED system (mode+status), RMT channel conflict fix, mode-switch torque race fix, integrated STS TCP virtual serial |
 | v0.4.3 | 2026-03-18 | Full STS protocol for virtual COM bridge, Gateway control stability, WS disconnect protection |
 | v0.4.2 | 2026-03-18 | Virtual servo serial bridge (cross-platform), multi-device auto-detection, com0com/socat support |

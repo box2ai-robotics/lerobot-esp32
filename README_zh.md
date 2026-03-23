@@ -62,6 +62,19 @@ LeRobot-ESP32 基于 ESP-NOW 无线协议，实现 LeRobot 机械臂的全无线
 
 ![Box2AI 电路原理图](assets/hardware_SchDoc.png)
 
+### 舵机接线 — 飞特 vs 幻尔
+
+Box2Driver v0.4.5+ 同时支持 **飞特 (Feetech)** 和 **幻尔 (Hiwonder)** 总线舵机，固件开机自动检测舵机类型。但**两种品牌的线材接头方向不同**，接线前请先识别你的舵机品牌，准备正确的线材。
+
+![飞特 vs 幻尔线材对比](assets/Hiwonder-feetech.png)
+
+| 品牌 | 接头方向 | 说明 |
+|------|---------|------|
+| **幻尔 (Hiwonder)** | 同向 | 线材两端接头朝向相同 |
+| **飞特 (Feetech)** | 反向 | 线材两端接头朝向相反 |
+
+> **警告：** 使用错误方向的线材会导致引脚顺序反接（信号/电源/GND 错位），可能损坏舵机或控制板。连接前务必确认线材与舵机品牌匹配。
+
 ## 快速开始
 
 ### 1. 安装
@@ -273,6 +286,8 @@ python scripts/example_collect.py
 lerobot-esp32/
 ├── assets/                              # 图片资源
 │   ├── capture.png                      # 产品演示图
+│   ├── half_encode.jpg                  # 半位校准姿态参考图
+│   ├── Hiwonder-feetech.png            # 飞特/幻尔线材对比图
 │   ├── hardware.jpg                     # 硬件实物图
 │   └── hardware_SchDoc.png             # 电路原理图
 ├── bin/                                 # 预编译固件 (v0.4.4)
@@ -287,6 +302,7 @@ lerobot-esp32/
 │   ├── check_firmware.py                # 固件版本检查
 │   ├── example_collect.py               # 数据采集示例
 │   ├── compare_servo_protocol.py        # STS 协议调试工具
+│   ├── set_motors_half_encode.py        # 电机编码偏置校准
 │   ├── start_servo_bridge.bat           # Windows 虚拟串口启动
 │   └── start_servo_bridge.sh            # Linux/macOS 虚拟串口启动
 ├── examples/                            # 示例脚本
@@ -299,10 +315,43 @@ lerobot-esp32/
 └── VERSION
 ```
 
+## 常见问题 (FAQ)
+
+### Leader 和 Follower 两臂姿态不一致
+
+这是因为电机安装时的编码值不一致导致的。可以通过校准脚本写入电机编码偏置来修复。
+
+**操作步骤：**
+
+1. 将机械臂所有舵机手动摆到半位姿态（每个关节处于机械中心位置），参考下图：
+
+   ![半位校准姿态](assets/half_encode.jpg)
+
+2. 使用 **USB-to-TTL 调试板**（非 Box2Driver 控制板）将**单条机械臂**连接到电脑，每次只连一条臂，然后运行：
+
+   ```bash
+   pip install scservo-sdk pyserial
+   python scripts/set_motors_half_encode.py -p COM5          # 自动检测舵机类型
+   python scripts/set_motors_half_encode.py -p COM5 -t feetech   # 强制飞特模式
+   python scripts/set_motors_half_encode.py -p COM5 -t hiwonder  # 强制幻尔模式
+   python scripts/set_motors_half_encode.py -p COM5 --max-id 8   # 扫描 ID 1~8
+   ```
+
+3. 脚本会自动：
+   - 自动检测舵机类型（飞特或幻尔），也可手动指定
+   - 自动扫描并发现所有已连接的电机
+   - 清除所有电机的现有编码偏置
+   - 读取每个电机的当前位置
+   - 计算并写入偏置，使当前位置映射到中心值（飞特: 2048，幻尔: 500）
+   - 持续打印位置用于验证（Ctrl+C 退出）
+
+4. **Leader 和 Follower 两条臂都需要执行此脚本**，确保编码基准一致。
+
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v0.4.5 | 2026-03-23 | 新增幻尔 (Hiwonder) LX 系列总线舵机支持，启动自动检测舵机类型 (飞特/幻尔)，115200 波特率单个通信模式 |
 | v0.4.4 | 2026-03-19 | RGB 双灯系统 (模式+状态)、修复 RMT 通道冲突、修复模式切换力矩竞态、集成 STS TCP 虚拟串口 |
 | v0.4.3 | 2026-03-18 | 虚拟 COM 桥接完整 STS 协议、Gateway 控制稳定性、WS 断连保护 |
 | v0.4.2 | 2026-03-18 | 虚拟舵机串口桥接 (跨平台一键启动)、多设备自动检测、com0com/socat 支持 |
