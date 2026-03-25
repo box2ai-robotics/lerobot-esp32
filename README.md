@@ -87,7 +87,16 @@ pip install dist_pkg/box2driver-0.4.4-py3-none-any.whl
 
 ### 2. Launch
 
-Connect a Gateway-mode ESP32 to your PC via USB:
+Connect a Gateway-mode ESP32 to your PC via USB. First, find the serial port assigned to the device:
+
+| Platform | Command | Example Output |
+|----------|---------|----------------|
+| **Windows** (PowerShell) | `Get-CimInstance Win32_SerialPort \| Select Name, DeviceID` | `COM5` |
+| **Windows** (CMD) | `mode` | `COM5` |
+| **macOS** | `ls /dev/cu.usb*` | `/dev/cu.usbserial-0001` |
+| **Ubuntu / Linux** | `ls /dev/ttyUSB* /dev/ttyACM*` | `/dev/ttyUSB0` |
+
+> **Tip:** On Linux/macOS, you can also run `dmesg | tail` right after plugging in the device to see the assigned port. On Windows, check **Device Manager → Ports (COM & LPT)**.
 
 ```bash
 box2driver                     # Auto-detect serial port, start Web + STS virtual serial
@@ -143,34 +152,48 @@ for dev_id, frame in client.stream():
 
 Pre-built firmware binaries are in the `bin/` directory. Devices ship with firmware pre-flashed.
 
-**Update firmware (factory-flashed devices)**
+Connect the ESP32 to your PC via USB, then find the serial port:
 
-Only the firmware.bin file is needed for updates:
+| Platform | Command | Example Output |
+|----------|---------|----------------|
+| **Windows** (PowerShell) | `Get-CimInstance Win32_SerialPort \| Select Name, DeviceID` | `COM5` |
+| **Windows** (CMD) | `mode` | `COM5` |
+| **macOS** | `ls /dev/cu.usb*` | `/dev/cu.usbserial-0001` |
+| **Ubuntu / Linux** | `ls /dev/ttyUSB* /dev/ttyACM*` | `/dev/ttyUSB0` |
 
-```bash
-pip install esptool
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
-```
+Replace `COM5` in the commands below with your actual port.
 
-Or use the Espressif Flash Download Tool: firmware.bin → address 0x10000
+**Flash firmware**
 
-**First-time full flash (new boards)**
-
-All 3 files are required:
+All 3 files are required (bootloader + partition table + firmware):
 
 | File | Address | Description |
 |------|---------|-------------|
-| box2driver_v0.4.4_bootloader.bin | 0x1000 | Bootloader |
-| box2driver_v0.4.4_partitions.bin | 0x8000 | Partition table |
-| box2driver_v0.4.4_firmware.bin | 0x10000 | Application firmware |
+| box2driver_v0.4.5_bootloader.bin | 0x1000 | Bootloader |
+| box2driver_v0.4.5_partitions.bin | 0x8000 | Partition table |
+| box2driver_v0.4.5_firmware.bin | 0x10000 | Application firmware |
 
 ```bash
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x1000 bin/box2driver_v0.4.4_bootloader.bin \
-    0x8000 bin/box2driver_v0.4.4_partitions.bin \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
+pip install esptool
+esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 write_flash \
+    0x1000 bin/box2driver_v0.4.5_bootloader.bin \
+    0x8000 bin/box2driver_v0.4.5_partitions.bin \
+    0x10000 bin/box2driver_v0.4.5_firmware.bin
 ```
+
+> **Warning:** Do NOT flash only firmware.bin — the bootloader and partition table must match the firmware version, otherwise the board may fail to boot.
+
+If the board does not respond after flashing, erase the entire flash first and then re-flash:
+
+```bash
+esptool.py --chip esp32 --port COM5 erase_flash
+esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
+    0x1000 bin/box2driver_v0.4.5_bootloader.bin \
+    0x8000 bin/box2driver_v0.4.5_partitions.bin \
+    0x10000 bin/box2driver_v0.4.5_firmware.bin
+```
+
+> Note: `erase_flash` clears NVS storage (saved mode, bindings, etc.). You will need to reconfigure the device mode after flashing.
 
 Or use `bin/flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI).
 
@@ -290,10 +313,10 @@ lerobot-esp32/
 │   ├── Hiwonder-feetech.png            # Servo cable orientation comparison
 │   ├── hardware.jpg                     # Hardware photo
 │   └── hardware_SchDoc.png             # Schematic
-├── bin/                                 # Pre-built firmware (v0.4.4)
-│   ├── box2driver_v0.4.4_firmware.bin
-│   ├── box2driver_v0.4.4_bootloader.bin
-│   ├── box2driver_v0.4.4_partitions.bin
+├── bin/                                 # Pre-built firmware (v0.4.5)
+│   ├── box2driver_v0.4.5_firmware.bin
+│   ├── box2driver_v0.4.5_bootloader.bin
+│   ├── box2driver_v0.4.5_partitions.bin
 │   └── flash_download_tool/             # Espressif Flash Download Tool
 ├── dist_pkg/                            # Pre-built Python package
 │   └── box2driver-0.4.4-py3-none-any.whl

@@ -87,7 +87,16 @@ pip install dist_pkg/box2driver-0.4.4-py3-none-any.whl
 
 ### 2. 启动
 
-将 Gateway 模式的 ESP32 通过 USB 连接到电脑：
+将 Gateway 模式的 ESP32 通过 USB 连接到电脑。首先查看设备分配的串口号：
+
+| 平台 | 命令 | 示例输出 |
+|------|------|----------|
+| **Windows** (PowerShell) | `Get-CimInstance Win32_SerialPort \| Select Name, DeviceID` | `COM5` |
+| **Windows** (CMD) | `mode` | `COM5` |
+| **macOS** | `ls /dev/cu.usb*` | `/dev/cu.usbserial-0001` |
+| **Ubuntu / Linux** | `ls /dev/ttyUSB* /dev/ttyACM*` | `/dev/ttyUSB0` |
+
+> **提示：** Linux/macOS 下也可以在插入设备后立即运行 `dmesg | tail` 查看分配的端口。Windows 下可打开 **设备管理器 → 端口 (COM 和 LPT)** 查看。
 
 ```bash
 box2driver                     # 自动检测串口，启动 Web + STS 虚拟串口
@@ -143,34 +152,48 @@ for dev_id, frame in client.stream():
 
 预编译固件在 `bin/` 目录下，出厂设备已预烧录固件。
 
-**更新固件 (出厂已烧录过)**
+将 ESP32 通过 USB 连接到电脑，先查看分配的串口号：
 
-后续版本更新**只需烧录 firmware.bin 一个文件**：
+| 平台 | 命令 | 示例输出 |
+|------|------|----------|
+| **Windows** (PowerShell) | `Get-CimInstance Win32_SerialPort \| Select Name, DeviceID` | `COM5` |
+| **Windows** (CMD) | `mode` | `COM5` |
+| **macOS** | `ls /dev/cu.usb*` | `/dev/cu.usbserial-0001` |
+| **Ubuntu / Linux** | `ls /dev/ttyUSB* /dev/ttyACM*` | `/dev/ttyUSB0` |
+
+将下方命令中的 `COM5` 替换为你实际的串口号。
+
+**烧录固件**
+
+需要烧录全部 3 个文件（引导程序 + 分区表 + 固件）：
+
+| 文件 | 地址 | 说明 |
+|------|------|------|
+| box2driver_v0.4.5_bootloader.bin | 0x1000 | 引导程序 |
+| box2driver_v0.4.5_partitions.bin | 0x8000 | 分区表 |
+| box2driver_v0.4.5_firmware.bin | 0x10000 | 应用固件 |
 
 ```bash
 pip install esptool
 esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
+    0x1000 bin/box2driver_v0.4.5_bootloader.bin \
+    0x8000 bin/box2driver_v0.4.5_partitions.bin \
+    0x10000 bin/box2driver_v0.4.5_firmware.bin
 ```
 
-或使用乐鑫烧录工具：firmware.bin → 地址 0x10000
+> **警告：** 不要只烧录 firmware.bin — 引导程序和分区表必须与固件版本匹配，否则板子可能无法启动。
 
-**首次完整烧录 (新板子)**
-
-需要烧录全部 3 个文件：
-
-| 文件 | 地址 | 说明 |
-|------|------|------|
-| box2driver_v0.4.4_bootloader.bin | 0x1000 | 引导程序 |
-| box2driver_v0.4.4_partitions.bin | 0x8000 | 分区表 |
-| box2driver_v0.4.4_firmware.bin | 0x10000 | 应用固件 |
+如果烧录后板子没有反应，先完全擦除再重新烧录：
 
 ```bash
+esptool.py --chip esp32 --port COM5 erase_flash
 esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x1000 bin/box2driver_v0.4.4_bootloader.bin \
-    0x8000 bin/box2driver_v0.4.4_partitions.bin \
-    0x10000 bin/box2driver_v0.4.4_firmware.bin
+    0x1000 bin/box2driver_v0.4.5_bootloader.bin \
+    0x8000 bin/box2driver_v0.4.5_partitions.bin \
+    0x10000 bin/box2driver_v0.4.5_firmware.bin
 ```
+
+> 注意：`erase_flash` 会清除 NVS 存储（已保存的模式、绑定关系等），烧录后需要重新配置设备模式。
 
 或使用 `bin/flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI)。
 
@@ -290,10 +313,10 @@ lerobot-esp32/
 │   ├── Hiwonder-feetech.png            # 飞特/幻尔线材对比图
 │   ├── hardware.jpg                     # 硬件实物图
 │   └── hardware_SchDoc.png             # 电路原理图
-├── bin/                                 # 预编译固件 (v0.4.4)
-│   ├── box2driver_v0.4.4_firmware.bin
-│   ├── box2driver_v0.4.4_bootloader.bin
-│   ├── box2driver_v0.4.4_partitions.bin
+├── bin/                                 # 预编译固件 (v0.4.5)
+│   ├── box2driver_v0.4.5_firmware.bin
+│   ├── box2driver_v0.4.5_bootloader.bin
+│   ├── box2driver_v0.4.5_partitions.bin
 │   └── flash_download_tool/             # 乐鑫烧录工具
 ├── dist_pkg/                            # 预编译 Python 包
 │   └── box2driver-0.4.4-py3-none-any.whl
