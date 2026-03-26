@@ -82,7 +82,7 @@ Box2Driver v0.4.5+ supports both **Feetech (飞特)** and **Hiwonder (幻尔)** 
 ```bash
 conda create -n box2driver python=3.12 -y
 conda activate box2driver
-pip install dist_pkg/box2driver-0.4.4-py3-none-any.whl
+python -m pip install dist_pkg/box2driver-0.4.5-py3-none-any.whl
 ```
 
 ### 2. Launch
@@ -99,9 +99,9 @@ Connect a Gateway-mode ESP32 to your PC via USB. First, find the serial port ass
 > **Tip:** On Linux/macOS, you can also run `dmesg | tail` right after plugging in the device to see the assigned port. On Windows, check **Device Manager → Ports (COM & LPT)**.
 
 ```bash
-box2driver                     # Auto-detect serial port, start Web + STS virtual serial
+box2driver                     # Auto-detect serial port, start Web + STS + virtual COM bridge
 box2driver -p COM5             # Specify serial port
-box2driver --bridge            # Also start com0com/socat virtual COM port
+box2driver --no-bridge         # Disable com0com/socat virtual COM bridge
 box2driver --no-web            # No web UI, virtual serial only
 box2driver --list              # List available serial ports
 ```
@@ -114,16 +114,18 @@ After launch, the system automatically:
 5. Prints the port mapping table
 
 ```
-  Device      | MAC           | Servos    | Port
-  ------------|---------------|-----------|--------------------
-  Follower    | ...2D:B6:94 | ID=2      | COM51
-  Leader      | ...2C:3E:28 | ID=1-6    | socket://localhost:6570
+  Device      | MAC             | Port (Windows)  | Port (Linux/macOS)
+  ------------|-----------------|-----------------|-----------------------------
+  Leader      | ...2C:3E:28     | COM51           | socket://localhost:6560
+  Follower    | ...6D:53:E0     | COM53           | socket://localhost:6561
 ```
 
-**Windows**: Open FD software → select COM51 → baud rate 1000000 → scan servos
-**Linux/macOS**: Use `PortHandler('/tmp/vservo0')` with `scservo_sdk`
+Each device gets both a TCP port (`socket://localhost:<port>`) and a virtual COM port (if com0com/socat is available). COM ports require the virtual serial driver below; TCP ports always work.
 
-Virtual serial driver prerequisites:
+**Windows**: Open FD software → select COM port (e.g. COM53) → baud rate 1000000 → scan servos
+**Linux/macOS**: Use `PortHandler('socket://localhost:6561')` or `PortHandler('/dev/ttyACM0')` with `scservo_sdk`
+
+Virtual serial driver prerequisites (required for COM port mapping):
 
 | Platform | Installation |
 |----------|-------------|
@@ -175,27 +177,29 @@ All 3 files are required (bootloader + partition table + firmware):
 
 ```bash
 pip install esptool
-esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 write_flash \
-    0x1000 bin/box2driver_v0.4.5_bootloader.bin \
-    0x8000 bin/box2driver_v0.4.5_partitions.bin \
-    0x10000 bin/box2driver_v0.4.5_firmware.bin
-```
-
-> **Warning:** Do NOT flash only firmware.bin — the bootloader and partition table must match the firmware version, otherwise the board may fail to boot.
-
-If the board does not respond after flashing, erase the entire flash first and then re-flash:
-
-```bash
-esptool.py --chip esp32 --port COM5 erase_flash
-esptool.py --chip esp32 --port COM5 --baud 921600 write_flash \
-    0x1000 bin/box2driver_v0.4.5_bootloader.bin \
-    0x8000 bin/box2driver_v0.4.5_partitions.bin \
-    0x10000 bin/box2driver_v0.4.5_firmware.bin
+python -m esptool --chip esp32 --port COM36 erase_flash
+python -m esptool --chip esp32 --port COM36 --baud 921600 write_flash 0x1000 bin/box2driver_v0.4.5_bootloader.bin 0x8000 bin/box2driver_v0.4.5_partitions.bin 0x10000 bin/box2driver_v0.4.5_firmware.bin
 ```
 
 > Note: `erase_flash` clears NVS storage (saved mode, bindings, etc.). You will need to reconfigure the device mode after flashing.
 
-Or use `bin/flash_download_tool/flash_download_tool_3.9.9_R2.exe` (Windows GUI).
+**Windows GUI: Flash Download Tool**
+
+If you prefer a graphical tool, use `bin/flash_download_tool/flash_download_tool_3.9.9_R2.exe`.
+
+> **Driver required:** If your PC does not recognize the ESP32's USB port, install the CP210x driver from `bin/flash_download_tool/CP210x_USB_TO_UART/`. Choose the version matching your Windows (Win10 / Win7-8 64-bit / XP-Win7 32-bit), run the installer, then reconnect the ESP32.
+
+1. Open the tool, select **ChipType: ESP32**, **WorkMode: Develop**, **LoadMode: UART**, click OK:
+
+   ![Flash Download Tool - Select ESP32](assets/flash_esp32.jpg)
+
+2. Add the 3 bin files with their addresses, select your COM port and baud rate 921600, then click **START**:
+
+   ![Flash Download Tool - Select bins](assets/flash_select_bins.jpg)
+
+3. Wait until the status shows **FINISH**:
+
+   ![Flash Download Tool - Success](assets/flahs_succesful.jpg)
 
 ## Feature Details
 
@@ -319,7 +323,7 @@ lerobot-esp32/
 │   ├── box2driver_v0.4.5_partitions.bin
 │   └── flash_download_tool/             # Espressif Flash Download Tool
 ├── dist_pkg/                            # Pre-built Python package
-│   └── box2driver-0.4.4-py3-none-any.whl
+│   └── box2driver-0.4.5-py3-none-any.whl
 ├── scripts/                             # Utility scripts
 │   ├── check_env.py                     # Environment checker
 │   ├── check_firmware.py                # Firmware version checker
