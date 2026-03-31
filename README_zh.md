@@ -178,7 +178,7 @@ for dev_id, frame in client.stream():
 ```bash
 pip install esptool
 python -m esptool --chip esp32 --port COM5 erase_flash
-python -m esptool --chip esp32 --port COM5 --baud 921600 write_flash 0x1000 bin/box2driver_v0.4.5_bootloader.bin 0x8000 bin/box2driver_v0.4.5_partitions.bin 0x10000 bin/box2driver_v0.4.5_firmware.bin
+python -m esptool --chip esp32 --port COM36 --baud 921600 write_flash 0x1000 bin/box2driver_v0.4.5_bootloader.bin 0x8000 bin/box2driver_v0.4.5_partitions.bin 0x10000 bin/box2driver_v0.4.5_firmware.bin
 ```
 
 > 注意：`erase_flash` 会清除 NVS 存储（已保存的模式、绑定关系等），烧录后需要重新配置设备模式。

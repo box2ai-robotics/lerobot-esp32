@@ -315,8 +315,8 @@ def main():
                         help='Serial port (default: /dev/ttyACM0)')
     parser.add_argument('-t', '--type', choices=['feetech', 'hiwonder', 'auto'], default='auto',
                         help='Servo type (default: auto-detect)')
-    parser.add_argument('--max-id', type=int, default=6,
-                        help='Max servo ID to scan (default: 6)')
+    parser.add_argument('--max-id', type=int, default=20,
+                        help='Max servo ID to scan (default: 20)')
     args = parser.parse_args()
 
     servo_type = args.type
