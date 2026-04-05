@@ -80,6 +80,9 @@ Box2Driver v0.4.5+ supports both **Feetech (飞特)** and **Hiwonder (幻尔)** 
 ### 1. Install
 
 ```bash
+git clone https://github.com/box2ai-robotics/lerobot-esp32
+cd lerobot-esp32
+
 conda create -n box2driver python=3.12 -y
 conda activate box2driver
 python -m pip install dist_pkg/box2driver-0.4.5-py3-none-any.whl
