@@ -360,7 +360,7 @@ lerobot-esp32/
 2. 使用 **USB-to-TTL 调试板**（非 Box2Driver 控制板）将**单条机械臂**连接到电脑，每次只连一条臂，然后运行：
 
    ```bash
-   pip install scservo-sdk pyserial
+   pip install ftservo-python-sdk pyserial
    python scripts/set_motors_half_encode.py -p COM5          # 自动检测舵机类型
    python scripts/set_motors_half_encode.py -p COM5 -t feetech   # 强制飞特模式
    python scripts/set_motors_half_encode.py -p COM5 -t hiwonder  # 强制幻尔模式

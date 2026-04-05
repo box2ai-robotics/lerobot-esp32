@@ -360,7 +360,7 @@ This is caused by inconsistent encoder values due to different motor installatio
 2. Connect **one arm at a time** to the PC using a **USB-to-TTL adapter board** (not via the Box2Driver controller), then run:
 
    ```bash
-   pip install scservo-sdk pyserial
+   pip install ftservo-python-sdk pyserial
    python scripts/set_motors_half_encode.py -p COM5          # Auto-detect servo type
    python scripts/set_motors_half_encode.py -p COM5 -t feetech   # Force Feetech
    python scripts/set_motors_half_encode.py -p COM5 -t hiwonder  # Force Hiwonder
