@@ -1,3 +1,5 @@
+> **本项目已停止维护，兼容WIFI的新项目请前往: [box2robot](https://github.com/box2ai-robotics/box2robot)**
+
 [English](README.md) | 中文
 
 # LeRobot-ESP32: 全无线 LeRobot 机械臂控制方案

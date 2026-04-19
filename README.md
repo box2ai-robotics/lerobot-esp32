@@ -1,3 +1,5 @@
+> **This project is no longer maintained. For a new project compatible with WIFI, please visit: [box2robot](https://github.com/box2ai-robotics/box2robot)**
+
 English | [中文](README_zh.md)
 
 # LeRobot-ESP32: Fully Wireless LeRobot Arm Control
